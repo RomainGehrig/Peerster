@@ -3,21 +3,57 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dedis/protobuf"
+	"net"
 	"os"
 )
 
+type Message struct {
+	Text string
+}
+
 func main() {
-	var Usage = func() {
+	Usage := func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
-	var uiPort = flag.String("UIPort", "8080", "port for the UI client")
-	var msg = flag.String("msg", "", "message to be sent")
+	uiPort := flag.String("UIPort", "8080", "port for the UI client")
+	msg := flag.String("msg", "", "message to be sent")
 
 	Usage()
 	flag.Parse()
 
-	fmt.Printf("Given arguments where: %s, %s", *uiPort, *msg)
+	address := fmt.Sprintf(":%s", *uiPort)
 
+	toSend := &Message{*msg}
+	packetBytes, err := protobuf.Encode(toSend)
+	fmt.Println(packetBytes)
+	if err != nil {
+		fmt.Println(err)
+	}
+	// TODO Handle err
+
+	conn, err := net.Dial("udp4", address)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	conn.Write(packetBytes)
+
+	// udpAddr, err := net.ResolveUDPAddr("udp4", address)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// udpConn, err := net.DialUDP("udp4", "", udpAddr)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// u, err := udpConn.WriteToUDP(packetBytes, udpAddr)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// fmt.Println(u)
 }
