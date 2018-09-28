@@ -43,6 +43,6 @@ func (m *Message) String() string {
 	return fmt.Sprintf("CLIENT MESSAGE %s", m.Text)
 }
 
-func (p *GossipPacket) String() string {
-	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", p.Simple.OriginalName, p.Simple.RelayPeerAddr, p.Simple.Contents)
+func (simple *SimpleMessage) String() string {
+	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", simple.OriginalName, simple.RelayPeerAddr, simple.Contents)
 }

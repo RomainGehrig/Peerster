@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// TODO Is is possible to remove this ?
 const BUFFERSIZE int = 1024
 
 type Gossiper struct {
@@ -70,7 +71,19 @@ func (g *Gossiper) ListenForNodeMessages() {
 	for {
 		g.conn.ReadFromUDP(packetBytes)
 		protobuf.Decode(packetBytes, &packet)
-		g.HandleNodeMessage(&packet)
+		g.DispatchPacket(&packet)
+	}
+}
+
+func (g *Gossiper) DispatchPacket(packet *GossipPacket) {
+	switch {
+	case packet.Simple != nil:
+		// TODO Is is always a node message ?
+		g.HandleNodeMessage(packet.Simple)
+	case packet.Rumor != nil:
+		// TODO
+	case packet.Status != nil:
+		// TODO
 	}
 }
 
@@ -82,14 +95,14 @@ func (g *Gossiper) HandleClientMessage(m *Message) {
 	g.PrintPeers()
 }
 
-func (g *Gossiper) HandleNodeMessage(p *GossipPacket) {
-	msg := g.createForwardedMessage(p.Simple)
+func (g *Gossiper) HandleNodeMessage(simple *SimpleMessage) {
+	msg := g.createForwardedMessage(simple)
 	// Add msg peer to peers
-	g.AddPeer(p.Simple.RelayPeerAddr)
+	g.AddPeer(simple.RelayPeerAddr)
 	// Broadcast to everyone but sender
-	g.BroadcastMessage(msg, StringSetInitSingleton(p.Simple.RelayPeerAddr))
+	g.BroadcastMessage(msg, StringSetInitSingleton(simple.RelayPeerAddr))
 
-	fmt.Println(p)
+	fmt.Println(simple)
 	g.PrintPeers()
 }
 
@@ -113,17 +126,19 @@ func (g *Gossiper) createClientMessage(m *Message) *SimpleMessage {
 		Contents:      m.Text}
 }
 
-func (g *Gossiper) SendMessage(m *SimpleMessage, peerAddr string) {
-	toSend := &GossipPacket{Simple: m}
-	packetBytes, err := protobuf.Encode(toSend)
+func (g *Gossiper) SendGossipPacket(gp *GossipPacket, peerAddr string) {
+	packetBytes, err := protobuf.Encode(gp)
 	if err != nil {
 		fmt.Println(err)
 	}
-	// TODO Handle err
 
 	conn, err := net.Dial("udp4", peerAddr)
-
 	conn.Write(packetBytes)
+}
+
+func (g *Gossiper) SendMessage(m *SimpleMessage, peerAddr string) {
+	toSend := &GossipPacket{Simple: m}
+	g.SendGossipPacket(toSend, peerAddr)
 }
 
 // TODO Thread safety of knownPeers
