@@ -36,20 +36,4 @@ func main() {
 	}
 
 	conn.Write(packetBytes)
-
-	// udpAddr, err := net.ResolveUDPAddr("udp4", address)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-	// udpConn, err := net.DialUDP("udp4", "", udpAddr)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// u, err := udpConn.WriteToUDP(packetBytes, udpAddr)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// fmt.Println(u)
 }
