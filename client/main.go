@@ -3,14 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/types"
 	"github.com/dedis/protobuf"
 	"net"
 	"os"
 )
-
-type Message struct {
-	Text string
-}
 
 func main() {
 	Usage := func() {
@@ -28,7 +25,6 @@ func main() {
 
 	toSend := &Message{*msg}
 	packetBytes, err := protobuf.Encode(toSend)
-	fmt.Println(packetBytes)
 	if err != nil {
 		fmt.Println(err)
 	}

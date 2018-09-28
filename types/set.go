@@ -1,31 +1,4 @@
-package main
-
-import "net"
-
-const BUFFERSIZE int = 1024
-
-type Message struct {
-	Text string
-}
-
-type SimpleMessage struct {
-	OriginalName  string
-	RelayPeerAddr string
-	Contents      string
-}
-
-type GossipPacket struct {
-	Simple *SimpleMessage
-}
-
-type Gossiper struct {
-	address    *net.UDPAddr
-	conn       *net.UDPConn
-	uiAddress  *net.UDPAddr
-	uiConn     *net.UDPConn
-	Name       string
-	knownPeers *StringSet
-}
+package types
 
 type StringSet struct {
 	strMap map[string]struct{}
