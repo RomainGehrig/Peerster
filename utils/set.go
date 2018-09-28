@@ -1,4 +1,4 @@
-package types
+package utils
 
 type StringSet struct {
 	strMap map[string]struct{}

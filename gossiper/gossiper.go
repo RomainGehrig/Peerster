@@ -1,7 +1,9 @@
-package types
+package gossiper
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 	"github.com/dedis/protobuf"
 	"net"
 	"strings"
@@ -18,7 +20,6 @@ type Gossiper struct {
 	knownPeers *StringSet
 }
 
-// TODO: move to its own package/file
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
 	fmt.Printf("Given arguments where: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
@@ -132,14 +133,6 @@ func (g *Gossiper) BroadcastMessage(m *SimpleMessage, excludedPeers *StringSet) 
 			g.SendMessage(m, peer)
 		}
 	}
-}
-
-func (m *Message) String() string {
-	return fmt.Sprintf("CLIENT MESSAGE %s", m.Text)
-}
-
-func (p *GossipPacket) String() string {
-	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", p.Simple.OriginalName, p.Simple.RelayPeerAddr, p.Simple.Contents)
 }
 
 func (g *Gossiper) PrintPeers() {

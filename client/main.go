@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/types"
+	. "github.com/RomainGehrig/Peerster/messages"
 	"github.com/dedis/protobuf"
 	"net"
 	"os"
