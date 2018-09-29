@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	Usage := func() {
+	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -18,7 +18,6 @@ func main() {
 	uiPort := flag.String("UIPort", "8080", "port for the UI client")
 	msg := flag.String("msg", "", "message to be sent")
 
-	Usage()
 	flag.Parse()
 
 	address := fmt.Sprintf(":%s", *uiPort)

@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	var Usage = func() {
+	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
 	}
@@ -20,7 +20,6 @@ func main() {
 	var peersList = flag.String("peers", "", "comma separated list of peers of the form ip:port")
 	var simple = flag.Bool("simple", false, "run gossiper in simple broadcast mode")
 
-	Usage()
 	flag.Parse()
 
 	var peers = strings.Split(*peersList, ",")
