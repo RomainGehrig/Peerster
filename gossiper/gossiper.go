@@ -22,7 +22,7 @@ type Gossiper struct {
 }
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
-	fmt.Printf("Given arguments where: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
+	// fmt.Printf("Given arguments where: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
 	if err != nil {
 		fmt.Println("Error when creating udpAddr", err)
@@ -35,7 +35,6 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 
 	uiAddr := fmt.Sprintf("127.0.0.1:%s", uiPort)
 	udpUIAddr, err := net.ResolveUDPAddr("udp4", uiAddr)
-	fmt.Println(udpUIAddr, uiAddr)
 	if err != nil {
 		fmt.Println("Error when creating udpUIAddr", err)
 	}
