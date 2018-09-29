@@ -26,6 +26,5 @@ func main() {
 
 	gossiper := NewGossiper(*uiPort, *gossipAddr, *name, peers, *simple)
 
-	go gossiper.ListenForClientMessages()
-	gossiper.ListenForNodeMessages()
+	gossiper.Run()
 }

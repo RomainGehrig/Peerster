@@ -54,24 +54,64 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 	}
 }
 
-func (g *Gossiper) ListenForClientMessages() {
-	msgBytes := make([]byte, BUFFERSIZE)
-	var msg Message
+func (g *Gossiper) Run() {
+	peerChan := g.PeersMessages()
+	clientChan := g.ClientMessages()
+
+	g.ListenForMessages(peerChan, clientChan)
+}
+
+func (g *Gossiper) ListenForMessages(peerMsgs <-chan *GossipPacket, clientMsgs <-chan *Message) {
 	for {
-		g.uiConn.ReadFromUDP(msgBytes)
-		protobuf.Decode(msgBytes, &msg)
-		g.HandleClientMessage(&msg)
+		select {
+		case gp := <-peerMsgs:
+			g.DispatchPacket(gp)
+		case msg := <-clientMsgs:
+			g.HandleClientMessage(msg)
+			fmt.Println(msg)
+		}
+		g.PrintPeers()
 	}
 }
 
-func (g *Gossiper) ListenForNodeMessages() {
-	packetBytes := make([]byte, BUFFERSIZE)
+func (g *Gossiper) ClientMessages() <-chan *Message {
+	var message Message
+	out := make(chan *Message)
+	packets := MessageReceiver(g.uiConn)
+	go func() {
+		for {
+			packetBytes := <-packets
+			protobuf.Decode(packetBytes, &message)
+			out <- &message
+		}
+	}()
+	return out
+}
+
+func (g *Gossiper) PeersMessages() <-chan *GossipPacket {
 	var packet GossipPacket
-	for {
-		g.conn.ReadFromUDP(packetBytes)
-		protobuf.Decode(packetBytes, &packet)
-		g.DispatchPacket(&packet)
-	}
+	out := make(chan *GossipPacket)
+	packets := MessageReceiver(g.conn)
+	go func() {
+		for {
+			packetBytes := <-packets
+			protobuf.Decode(packetBytes, &packet)
+			out <- &packet
+		}
+	}()
+	return out
+}
+
+func MessageReceiver(conn *net.UDPConn) <-chan []byte {
+	packetBytes := make([]byte, BUFFERSIZE)
+	out := make(chan []byte)
+	go func() {
+		for {
+			conn.ReadFromUDP(packetBytes)
+			out <- packetBytes
+		}
+	}()
+	return out
 }
 
 func (g *Gossiper) DispatchPacket(packet *GossipPacket) {
@@ -79,8 +119,9 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket) {
 	case packet.Simple != nil:
 		// TODO Is is always a node message ?
 		g.HandleNodeMessage(packet.Simple)
+		fmt.Println(packet.Simple)
 	case packet.Rumor != nil:
-		// TODO
+		g.HandleRumorMessage(packet.Rumor)
 	case packet.Status != nil:
 		// TODO
 	}
@@ -89,9 +130,10 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket) {
 func (g *Gossiper) HandleClientMessage(m *Message) {
 	msg := g.createClientMessage(m)
 	g.BroadcastMessage(msg, nil)
+}
 
-	fmt.Println(m)
-	g.PrintPeers()
+func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage) {
+	// TODO
 }
 
 func (g *Gossiper) HandleNodeMessage(simple *SimpleMessage) {
@@ -100,9 +142,6 @@ func (g *Gossiper) HandleNodeMessage(simple *SimpleMessage) {
 	g.AddPeer(simple.RelayPeerAddr)
 	// Broadcast to everyone but sender
 	g.BroadcastMessage(msg, StringSetInitSingleton(simple.RelayPeerAddr))
-
-	fmt.Println(simple)
-	g.PrintPeers()
 }
 
 func (g *Gossiper) AddPeer(peer string) {
