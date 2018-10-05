@@ -107,7 +107,7 @@ func MessageReceiver(conn *net.UDPConn) <-chan []byte {
 	out := make(chan []byte)
 	go func() {
 		for {
-			conn.ReadFromUDP(packetBytes)
+			_, sender, _ := conn.ReadFromUDP(packetBytes)
 			out <- packetBytes
 		}
 	}()
@@ -170,13 +170,11 @@ func (g *Gossiper) SendGossipPacket(gp *GossipPacket, peerAddr string) {
 		fmt.Println(err)
 	}
 
-	conn, err := net.Dial("udp4", peerAddr)
+	peerUDPAddr, err := net.ResolveUDPAddr("udp4", peerAddr)
+	_, err = g.conn.WriteToUDP(packetBytes, peerUDPAddr)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	conn.Write(packetBytes)
-	conn.Close()
 }
 
 func (g *Gossiper) SendMessage(m *SimpleMessage, peerAddr string) {
