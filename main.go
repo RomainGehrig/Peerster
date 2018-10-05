@@ -14,15 +14,16 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	var uiPort = flag.String("UIPort", "8080", "port for the UI client")
-	var gossipAddr = flag.String("gossipAddr", "127.0.0.1:5000", "ip:addr for the gossiper")
-	var name = flag.String("name", "", "name of the gossiper")
-	var peersList = flag.String("peers", "", "comma separated list of peers of the form ip:port")
-	var simple = flag.Bool("simple", false, "run gossiper in simple broadcast mode")
+	uiPort := flag.String("UIPort", "8080", "port for the UI client")
+	gossipAddr := flag.String("gossipAddr", "127.0.0.1:5000", "ip:addr for the gossiper")
+	name := flag.String("name", "", "name of the gossiper")
+	peersList := flag.String("peers", "", "comma separated list of peers of the form ip:port")
+	simple := flag.Bool("simple", false, "run gossiper in simple broadcast mode")
 
 	flag.Parse()
 
-	var peers = strings.Split(*peersList, ",")
+	// Read the list of peers from the string of peers
+	peers := strings.Split(*peersList, ",")
 
 	gossiper := NewGossiper(*uiPort, *gossipAddr, *name, peers, *simple)
 
