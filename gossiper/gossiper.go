@@ -171,7 +171,12 @@ func (g *Gossiper) SendGossipPacket(gp *GossipPacket, peerAddr string) {
 	}
 
 	conn, err := net.Dial("udp4", peerAddr)
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	conn.Write(packetBytes)
+	conn.Close()
 }
 
 func (g *Gossiper) SendMessage(m *SimpleMessage, peerAddr string) {
