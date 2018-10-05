@@ -21,6 +21,11 @@ type Gossiper struct {
 	knownPeers *StringSet
 }
 
+type ReceivedMessage struct {
+	packetBytes []byte
+	sender      *net.UDPAddr
+}
+
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
 	// fmt.Printf("Given arguments where: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
@@ -77,11 +82,11 @@ func (g *Gossiper) ListenForMessages(peerMsgs <-chan *GossipPacket, clientMsgs <
 func (g *Gossiper) ClientMessages() <-chan *Message {
 	var message Message
 	out := make(chan *Message)
-	packets := MessageReceiver(g.uiConn)
+	receivedMsgs := MessageReceiver(g.uiConn)
 	go func() {
 		for {
-			packetBytes := <-packets
-			protobuf.Decode(packetBytes, &message)
+			receivedMsg := <-receivedMsgs
+			protobuf.Decode(receivedMsg.packetBytes, &message)
 			out <- &message
 		}
 	}()
@@ -91,24 +96,26 @@ func (g *Gossiper) ClientMessages() <-chan *Message {
 func (g *Gossiper) PeersMessages() <-chan *GossipPacket {
 	var packet GossipPacket
 	out := make(chan *GossipPacket)
-	packets := MessageReceiver(g.conn)
+	receivedMsgs := MessageReceiver(g.conn)
 	go func() {
 		for {
-			packetBytes := <-packets
-			protobuf.Decode(packetBytes, &packet)
+			receivedMsg := <-receivedMsgs
+			protobuf.Decode(receivedMsg.packetBytes, &packet)
+			// TODO do something with the sender
 			out <- &packet
 		}
 	}()
 	return out
 }
 
-func MessageReceiver(conn *net.UDPConn) <-chan []byte {
+func MessageReceiver(conn *net.UDPConn) <-chan *ReceivedMessage {
 	packetBytes := make([]byte, BUFFERSIZE)
-	out := make(chan []byte)
+	out := make(chan *ReceivedMessage)
 	go func() {
 		for {
 			_, sender, _ := conn.ReadFromUDP(packetBytes)
-			out <- packetBytes
+			// TODO Is it safe to only pass a reference to the byte array?
+			out <- &ReceivedMessage{packetBytes, sender}
 		}
 	}()
 	return out
@@ -133,7 +140,8 @@ func (g *Gossiper) HandleClientMessage(m *Message) {
 }
 
 func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage) {
-	// TODO
+	// Received a rumor message from somewhere
+
 }
 
 func (g *Gossiper) HandleNodeMessage(simple *SimpleMessage) {
