@@ -263,6 +263,13 @@ func (g *Gossiper) SendGossipPacket(tgp ToGossipPacket, peerUDPAddr *net.UDPAddr
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	// TODO Handle the prints occuring when sending a packet
+	// => Only when mongering
+	switch tgp.(type) {
+	case *RumorMessage:
+		fmt.Printf("MONGERING with %s", peerUDPAddr)
+	}
 }
 
 func (g *Gossiper) SendGossipPacketStr(tgp ToGossipPacket, peerAddr string) {
