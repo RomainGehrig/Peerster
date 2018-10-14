@@ -15,16 +15,18 @@ import (
 // TODO Is is possible to remove this ?
 const BUFFERSIZE int = 1024
 const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
+const ANTIENTROPY_TIME = 1 * time.Second
 
 type PeerStatusObserver (chan<- PeerStatus)
 
 type Gossiper struct {
-	address          *net.UDPAddr
-	conn             *net.UDPConn
-	uiAddress        *net.UDPAddr
-	uiConn           *net.UDPConn
-	Name             string
-	simpleMode       bool
+	address    *net.UDPAddr
+	conn       *net.UDPConn
+	uiAddress  *net.UDPAddr
+	uiConn     *net.UDPConn
+	Name       string
+	simpleMode bool
+	// TODO RWMutex on peerstatuses, rumormsgs, knownPeers ?
 	knownPeers       *StringSet
 	peerStatuses     map[string]PeerStatus
 	rumorMsgs        map[PeerStatus]RumorMessage
@@ -116,6 +118,7 @@ func (g *Gossiper) Run() {
 	peerChan := g.PeersMessages()
 	clientChan := g.ClientMessages()
 
+	go g.AntiEntropy()
 	g.dispatcher = RunPeerStatusDispatcher()
 	g.ListenForMessages(peerChan, clientChan)
 }
@@ -180,6 +183,21 @@ func RunPeerStatusDispatcher() *Dispatcher {
 	return dispatcher
 }
 
+func (g *Gossiper) AntiEntropy() {
+	ticker := time.NewTicker(ANTIENTROPY_TIME)
+	defer ticker.Stop()
+	for {
+		fmt.Println("Antientropy waiting")
+		select {
+		case <-ticker.C:
+			neighbor, present := g.pickRandomNeighbor()
+			fmt.Println("Antientropy chose", neighbor)
+			if present {
+				g.SendGossipPacketStr(g.createStatusMessage(), neighbor)
+			}
+		}
+	}
+}
 func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientMsgs <-chan *Message) {
 	for {
 		select {
@@ -281,8 +299,7 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 		fmt.Println("Send a status message because we are late in the rumors")
 		g.SendGossipPacket(g.createStatusMessage(), sender)
 	} else {
-		fmt.Println("IN SYNC with", sender)
-		// g.coinFlipRumorMongering(rumor, sender.String())
+		fmt.Println("IN SYNC WITH", sender)
 	}
 
 }
@@ -491,11 +508,10 @@ func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) 
 
 func (g *Gossiper) WantList() []PeerStatus {
 	peerStatuses := make([]PeerStatus, 0)
-	fmt.Println("Wantlist will be of size", len(g.peerStatuses))
+	// TODO RLock ?
 	for _, peerStatus := range g.peerStatuses {
 		peerStatuses = append(peerStatuses, peerStatus)
 	}
-	fmt.Println("Wantlist is of size", len(peerStatuses))
 	return peerStatuses
 }
 
