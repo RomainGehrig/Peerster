@@ -31,3 +31,10 @@ type Request struct {
 	Get  *GetRequest
 	Post *PostRequest
 }
+
+type Response struct {
+	Type   ResourceType
+	Rumors *[]RumorMessage
+	PeerID *string
+	Nodes  *[]string
+}
