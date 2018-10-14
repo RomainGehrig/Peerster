@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -18,17 +19,18 @@ const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 type PeerStatusObserver (chan<- PeerStatus)
 
 type Gossiper struct {
-	address      *net.UDPAddr
-	conn         *net.UDPConn
-	uiAddress    *net.UDPAddr
-	uiConn       *net.UDPConn
-	Name         string
-	simpleMode   bool
-	knownPeers   *StringSet
-	peerStatuses map[string]PeerStatus
-	rumorMsgs    map[PeerStatus]RumorMessage
-	peerWantList map[string](map[string]PeerStatus)
-	dispatcher   *Dispatcher
+	address          *net.UDPAddr
+	conn             *net.UDPConn
+	uiAddress        *net.UDPAddr
+	uiConn           *net.UDPConn
+	Name             string
+	simpleMode       bool
+	knownPeers       *StringSet
+	peerStatuses     map[string]PeerStatus
+	rumorMsgs        map[PeerStatus]RumorMessage
+	peerWantList     map[string](map[string]PeerStatus)
+	peerWantListLock *sync.RWMutex
+	dispatcher       *Dispatcher
 }
 
 type ReceivedMessage struct {
@@ -96,16 +98,17 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 	}
 
 	return &Gossiper{
-		address:      udpAddr,
-		conn:         udpConn,
-		uiAddress:    udpUIAddr,
-		uiConn:       udpUIConn,
-		simpleMode:   simple,
-		Name:         name,
-		knownPeers:   StringSetInit(peers),
-		peerStatuses: make(map[string]PeerStatus),
-		rumorMsgs:    make(map[PeerStatus]RumorMessage),
-		peerWantList: make(map[string](map[string]PeerStatus)),
+		address:          udpAddr,
+		conn:             udpConn,
+		uiAddress:        udpUIAddr,
+		uiConn:           udpUIConn,
+		simpleMode:       simple,
+		Name:             name,
+		knownPeers:       StringSetInit(peers),
+		peerStatuses:     make(map[string]PeerStatus),
+		rumorMsgs:        make(map[PeerStatus]RumorMessage),
+		peerWantList:     make(map[string](map[string]PeerStatus)),
+		peerWantListLock: &sync.RWMutex{},
 	}
 }
 
@@ -305,6 +308,9 @@ func (g *Gossiper) StartRumorMongeringProcess(rumor *RumorMessage, excluded ...s
 }
 
 func (g *Gossiper) getPeerWantList(peer string) []PeerStatus {
+	g.peerWantListLock.RLock()
+	defer g.peerWantListLock.RUnlock()
+
 	statusList, _ := g.peerWantList[peer]
 	wantList := make([]PeerStatus, len(statusList))
 	for _, peerStatus := range statusList {
@@ -324,6 +330,10 @@ func (g *Gossiper) peerIsInSync(peer string) bool {
 func (g *Gossiper) updatePeerState(peer string, newPeerStatus PeerStatus) (updated bool) {
 	updated = true
 	fmt.Println("Updating want list for peer", peer)
+
+	g.peerWantListLock.Lock()
+	defer g.peerWantListLock.Unlock()
+
 	mp, present := g.peerWantList[peer]
 	if !present {
 		mp = make(map[string]PeerStatus)
