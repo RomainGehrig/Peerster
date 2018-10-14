@@ -1,0 +1,3 @@
+* To start the webapp
+
+Just do ~cd webapp; go run server.go~ after the support libraries are installed
