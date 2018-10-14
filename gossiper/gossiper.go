@@ -440,7 +440,7 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 		if !present {
 			// We didn't know this origin before
 			// TODO NextID starts at zero ?
-			rumorsToAsk = append(rumorsToAsk, PeerStatus{Identifier: peerStatus.Identifier, NextID: 0})
+			rumorsToAsk = append(rumorsToAsk, PeerStatus{Identifier: peerStatus.Identifier, NextID: 1})
 		} else if currStatus.NextID < peerStatus.NextID {
 			// We are late on rumors from this origin
 			// /!\ We have to ask for OUR peerStatus, because we can only accept the next message
@@ -458,7 +458,7 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 	for peerID, _ := range g.peerStatuses {
 		if !otherOriginsSet.Has(peerID) {
 			// TODO NextID starts at zero?
-			rumorsToSend = append(rumorsToSend, PeerStatus{Identifier: peerID, NextID: 0})
+			rumorsToSend = append(rumorsToSend, PeerStatus{Identifier: peerID, NextID: 1})
 		}
 	}
 
@@ -506,7 +506,7 @@ func (g *Gossiper) SelfDiffRumorID(rumor *RumorMessage) int {
 	if !present {
 		peerStatus = PeerStatus{
 			Identifier: rumor.Origin,
-			NextID:     0,
+			NextID:     1,
 		}
 		g.peerStatuses[rumor.Origin] = peerStatus
 	}
@@ -591,7 +591,7 @@ func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
 	var nextID uint32
 	// TODO NextID starts at zero ?
 	if !present {
-		nextID = 0
+		nextID = 1
 	} else {
 		nextID = selfStatus.NextID
 	}
