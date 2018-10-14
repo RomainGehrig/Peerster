@@ -13,6 +13,8 @@ import (
 // TODO Is is possible to remove this ?
 const BUFFERSIZE int = 1024
 
+type PeerStatusObserver (chan<- PeerStatus)
+
 type Gossiper struct {
 	address      *net.UDPAddr
 	conn         *net.UDPConn
@@ -22,6 +24,7 @@ type Gossiper struct {
 	knownPeers   *StringSet
 	peerStatuses map[string]PeerStatus
 	rumorMsgs    map[PeerStatus]RumorMessage
+	dispatcher   *Dispatcher
 }
 
 type ReceivedMessage struct {
@@ -34,8 +37,38 @@ type WrappedGossipPacket struct {
 	gossipMsg *GossipPacket
 }
 
+type RegistrationMessageType int
+
+const (
+	Register RegistrationMessageType = iota
+	Unregister
+)
+
+// TODO Better name
+type StatusInterest struct {
+	sender     string
+	identifier string
+}
+
+type RegistrationMessage struct {
+	observerChan PeerStatusObserver
+	subject      StatusInterest
+	msgType      RegistrationMessageType
+}
+
+// TODO better name
+type LocalizedPeerStatuses struct {
+	sender   string
+	statuses []PeerStatus
+}
+
+type Dispatcher struct {
+	input        chan LocalizedPeerStatuses
+	registerChan chan RegistrationMessage
+}
+
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
-	// fmt.Printf("Given arguments where: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
+	// fmt.Printf("Given arguments were: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
 	if err != nil {
 		fmt.Println("Error when creating udpAddr", err)
@@ -73,7 +106,68 @@ func (g *Gossiper) Run() {
 	peerChan := g.PeersMessages()
 	clientChan := g.ClientMessages()
 
+	g.dispatcher = RunPeerStatusDispatcher()
 	g.ListenForMessages(peerChan, clientChan)
+}
+
+func (d *Dispatcher) mainLoop() {
+	// Keep a "list" of observers per subject of interest
+	// TODO Change bool to something else (empty struct ?)
+	subjects := make(map[StatusInterest](map[PeerStatusObserver]bool))
+	// Observers are a mapping from their channels to their interest (needed to find them in above map)
+	observers := make(map[PeerStatusObserver]StatusInterest)
+
+	for {
+		select {
+		case regMsg := <-d.registerChan:
+			switch regMsg.msgType {
+			case Register:
+				// TODO
+				subject := regMsg.subject
+				mp, present := subjects[subject]
+				if !present {
+					mp = make(map[PeerStatusObserver]bool)
+					subjects[subject] = mp
+				}
+				mp[regMsg.observerChan] = true
+				observers[regMsg.observerChan] = subject
+			case Unregister:
+				toClose := regMsg.observerChan
+				subject, present := observers[toClose]
+				if !present {
+					panic("Should only unregister after a registration !")
+				}
+				delete(observers, toClose)
+				delete(subjects[subject], toClose)
+
+				close(toClose)
+
+			}
+		case newStatuses := <-d.input:
+			for _, peerStatus := range newStatuses.statuses {
+				subject := StatusInterest{sender: newStatuses.sender, identifier: peerStatus.Identifier}
+				interestedChans, present := subjects[subject]
+				if !present {
+					continue
+				}
+
+				for interestedChan, _ := range interestedChans {
+					interestedChan <- peerStatus
+				}
+			}
+		}
+	}
+}
+
+func RunPeerStatusDispatcher() *Dispatcher {
+	// TODO Add buffering
+	inputChan := make(chan LocalizedPeerStatuses)
+	registerChan := make(chan RegistrationMessage)
+	dispatcher := &Dispatcher{input: inputChan, registerChan: registerChan}
+
+	go dispatcher.mainLoop()
+
+	return dispatcher
 }
 
 func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientMsgs <-chan *Message) {
@@ -135,19 +229,91 @@ func (g *Gossiper) DispatchPacket(wpacket *WrappedGossipPacket) {
 	sender := wpacket.sender
 	switch {
 	case packet.Simple != nil:
-		// TODO Is is always a node message ?
 		g.HandleNodeMessage(packet.Simple)
 		fmt.Println(packet.Simple)
 	case packet.Rumor != nil:
 		g.HandleRumorMessage(packet.Rumor, sender)
+		fmt.Println(packet.Rumor)
 	case packet.Status != nil:
-		// TODO
+		g.HandleStatusMessage(packet.Status, sender)
+		fmt.Println(packet.Status)
 	}
 }
 
 func (g *Gossiper) HandleClientMessage(m *Message) {
-	msg := g.createClientMessage(m)
-	g.BroadcastMessage(msg, nil)
+	// TODO Handle rumor messages
+	if !m.IsRumor {
+		msg := g.createClientMessage(m)
+		g.BroadcastMessage(msg, nil)
+	}
+}
+
+func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr) {
+	rumorsToSend, rumorsToAsk := g.computeRumorStatusDiff(status.Want)
+	if len(rumorsToSend) > 0 {
+		// Start rumormongering
+		var rumor RumorMessage = g.rumorMsgs[rumorsToSend[0]]
+		g.StartRumormongering(&rumor, sender)
+	} else if len(rumorsToAsk) > 0 {
+		// Send a StatusPacket
+		g.SendGossipPacket(g.createStatusMessage(), sender)
+	}
+}
+
+func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) {
+	peerUDPAddr, _ := net.ResolveUDPAddr("udp4", peerAddr)
+	g.StartRumormongering(rumor, peerUDPAddr)
+}
+
+func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDPAddr) {
+	// TODO Start timer for the timeout
+	// TODO Have to intercept the status packet that is relevant to the timeout
+	// TODO Act on StatusPacket -> left to reception ?
+	// TODO if timer is triggered, flip coin and restart rumormongering with a different peer
+
+	// aorsitnao
+}
+
+func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSend, rumorsToAsk []PeerStatus) {
+	// Need to find messages that are new from the sender => easy: for each message, ask if message is in g.msgs
+	// Need to find messages that are new to the sender => messages status that are not in status:
+	//   Create a set with all the other's origins: iterate over self.origins and check if self.origin in set of others.origins
+
+	rumorsToSend = make([]PeerStatus, 0)
+	rumorsToAsk = make([]PeerStatus, 0)
+	otherOrigins := make([]string, len(otherStatus))
+	// Check that we have all rumors already
+	for _, peerStatus := range otherStatus {
+		// Create the list of origins we will use to do the symmetric diff
+		otherOrigins = append(otherOrigins, peerStatus.Identifier)
+
+		currStatus, present := g.peerStatuses[peerStatus.Identifier]
+		if !present {
+			// We didn't know this origin before
+			// TODO NextID starts at zero ?
+			rumorsToAsk = append(rumorsToAsk, PeerStatus{Identifier: peerStatus.Identifier, NextID: 0})
+		} else if currStatus.NextID < peerStatus.NextID {
+			// We are late on rumors from this origin
+			// /!\ We have to ask for OUR peerStatus, because we can only accept the next message
+			rumorsToAsk = append(rumorsToAsk, currStatus)
+		} else if currStatus.NextID > peerStatus.NextID {
+			// We are more in advance than them
+			// /!\ We have to send the rumor corresponding to their peerStatus (peer can't accept another)
+			rumorsToSend = append(rumorsToSend, peerStatus)
+		}
+	}
+
+	otherOriginsSet := StringSetInit(otherOrigins)
+
+	// See if we have origins that they don't have (the other cases are handled already)
+	for peerID, _ := range g.peerStatuses {
+		if !otherOriginsSet.Has(peerID) {
+			// TODO NextID starts at zero?
+			rumorsToSend = append(rumorsToSend, PeerStatus{Identifier: peerID, NextID: 0})
+		}
+	}
+
+	return
 }
 
 func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) {
@@ -166,8 +332,11 @@ func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) 
 			g.acceptRumorMessage(rumor)
 			// New message, so we monger
 			// TODO Is sender.String() the right way to compare with other?
-			randNeighbor := g.pickRandomNeighbor(sender.String())
-			g.SendGossipPacketStr(rumor, randNeighbor)
+			// TODO If we only have as single neighbor, we stop
+			randNeighbor, present := g.pickRandomNeighbor(sender.String())
+			if present {
+				g.StartRumormongeringStr(rumor, randNeighbor)
+			}
 		}
 	}
 }
@@ -220,15 +389,24 @@ func (g *Gossiper) acceptRumorMessage(r *RumorMessage) {
 	g.peerStatuses[r.Origin] = newPeerStatus
 }
 
-func (g *Gossiper) pickRandomNeighbor(excluded string) string {
+func (g *Gossiper) pickRandomNeighbor(excluded ...string) (string, bool) {
 	peers := g.knownPeers.ToSlice()
-	peer := excluded
-	// TODO validate that if excluded is nil it works
-	for peer == excluded {
-		fmt.Println("Peer is", peer, "excluded is", excluded)
-		peer = peers[rand.Intn(len(peers))]
+	excludedSet := StringSetInit(excluded)
+	notExcluded := make([]string, len(peers))
+
+	for _, peer := range peers {
+		if !excludedSet.Has(peer) {
+			notExcluded = append(notExcluded, peer)
+		}
 	}
-	return peer
+
+	// Cannot pick a random neighbor that is not excluded
+	if len(notExcluded) == 0 {
+		return "", false
+	}
+
+	// Return a random peer
+	return notExcluded[rand.Intn(len(notExcluded))], true
 }
 
 func (g *Gossiper) createStatusMessage() *StatusPacket {
