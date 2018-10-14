@@ -1,6 +1,7 @@
 package messages
 
 import "fmt"
+import "strings"
 
 ///// Client messages
 type Message struct {
@@ -48,9 +49,20 @@ func (simple *SimpleMessage) String() string {
 	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", simple.OriginalName, simple.RelayPeerAddr, simple.Contents)
 }
 
-func (rumor *RumorMessage) String() string {
-	// TODO Rumor relay_addr !
-	return fmt.Sprintf("RUMOR origin %s from %s ID %d contents %s", rumor.Origin, rumor.Origin, rumor.ID, rumor.Text)
+func (rumor *RumorMessage) StringWithSender(sender string) string {
+	return fmt.Sprintf("RUMOR origin %s from %s ID %d contents %s", rumor.Origin, sender, rumor.ID, rumor.Text)
+}
+
+func (status *StatusPacket) StringWithSender(sender string) string {
+	wantStr := make([]string, 0)
+	for _, peerStatus := range status.Want {
+		wantStr = append(wantStr, peerStatus.String())
+	}
+	return fmt.Sprintf("STATUS from %s %s", sender, strings.Trim(strings.Join(wantStr, " "), " "))
+}
+
+func (p *PeerStatus) String() string {
+	return fmt.Sprintf("peer %s nextID %d", p.Identifier, p.NextID)
 }
 
 // TODO Could add the interface "ToUDPAddr" to convert string to udpaddr
