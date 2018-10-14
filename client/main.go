@@ -22,7 +22,7 @@ func main() {
 
 	address := fmt.Sprintf(":%s", *uiPort)
 
-	toSend := &Message{*msg}
+	toSend := &Message{Text: *msg}
 	packetBytes, err := protobuf.Encode(toSend)
 	if err != nil {
 		fmt.Println(err)

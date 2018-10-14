@@ -21,6 +21,7 @@ type Gossiper struct {
 	uiAddress    *net.UDPAddr
 	uiConn       *net.UDPConn
 	Name         string
+	simpleMode   bool
 	knownPeers   *StringSet
 	peerStatuses map[string]PeerStatus
 	rumorMsgs    map[PeerStatus]RumorMessage
@@ -95,6 +96,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		conn:         udpConn,
 		uiAddress:    udpUIAddr,
 		uiConn:       udpUIConn,
+		simpleMode:   simple,
 		Name:         name,
 		knownPeers:   StringSetInit(peers),
 		peerStatuses: make(map[string]PeerStatus),
@@ -242,14 +244,18 @@ func (g *Gossiper) DispatchPacket(wpacket *WrappedGossipPacket) {
 
 func (g *Gossiper) HandleClientMessage(m *Message) {
 	// TODO Handle rumor messages
-	if !m.IsRumor {
+	if g.simpleMode {
 		msg := g.createClientMessage(m)
 		g.BroadcastMessage(msg, nil)
+	} else {
+		msg := g.createClientRumor(m)
+		g.HandleRumorMessage(msg, nil)
 	}
 }
 
 func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr) {
 	rumorsToSend, rumorsToAsk := g.computeRumorStatusDiff(status.Want)
+	// The priority is first to send rumors, then to ask for rumors
 	if len(rumorsToSend) > 0 {
 		// Start rumormongering
 		var rumor RumorMessage = g.rumorMsgs[rumorsToSend[0]]
@@ -316,13 +322,16 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 	return
 }
 
+/* Sender can be nil, meaning the rumor was sent by a client */
 func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) {
 	// Received a rumor message from sender
 	diff := g.SelfDiffRumorID(rumor)
 	// Send back the status ACK for the message
 	// Want list is different in only one case: we accept the new rumor message
 	defer func() {
-		g.SendGossipPacket(g.createStatusMessage(), sender)
+		if sender != nil {
+			g.SendGossipPacket(g.createStatusMessage(), sender)
+		}
 	}()
 	switch {
 	case diff == 0: // TODO => we are in sync, ie. the rumor is not new
@@ -333,7 +342,15 @@ func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) 
 			// New message, so we monger
 			// TODO Is sender.String() the right way to compare with other?
 			// TODO If we only have as single neighbor, we stop
-			randNeighbor, present := g.pickRandomNeighbor(sender.String())
+			var randNeighbor string
+			var present bool
+
+			if sender != nil {
+				randNeighbor, present = g.pickRandomNeighbor(sender.String())
+			} else {
+				randNeighbor, present = g.pickRandomNeighbor()
+			}
+
 			if present {
 				g.StartRumormongeringStr(rumor, randNeighbor)
 			}
@@ -428,6 +445,22 @@ func (g *Gossiper) createClientMessage(m *Message) *SimpleMessage {
 		OriginalName:  g.Name,
 		RelayPeerAddr: g.address.String(),
 		Contents:      m.Text}
+}
+
+func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
+	selfStatus, present := g.peerStatuses[g.Name]
+	var nextID uint32
+	// TODO NextID starts at zero ?
+	if !present {
+		nextID = 0
+	} else {
+		nextID = selfStatus.NextID
+	}
+	return &RumorMessage{
+		Origin: g.Name,
+		ID:     nextID,
+		Text:   m.Text,
+	}
 }
 
 func (g *Gossiper) SendGossipPacket(tgp ToGossipPacket, peerUDPAddr *net.UDPAddr) {

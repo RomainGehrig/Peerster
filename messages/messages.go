@@ -4,8 +4,7 @@ import "fmt"
 
 ///// Client messages
 type Message struct {
-	Text    string
-	IsRumor bool
+	Text string
 }
 
 ///// Internode messages
