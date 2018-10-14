@@ -1,9 +1,10 @@
 package main
 
 import "fmt"
+import "time"
 
 func runDispatcher() (chan<- int, chan (chan<- int), chan (chan<- int)) {
-	input := make(chan int)
+	input := make(chan int, 100)
 	registerChan := make(chan (chan<- int))
 	unregisterChan := make(chan (chan<- int))
 
@@ -25,11 +26,12 @@ func runDispatcher() (chan<- int, chan (chan<- int), chan (chan<- int)) {
 				for c, _ := range waiters {
 					fmt.Println("Sending", val, "to", c)
 					// Important to be non blocking ?
+					// => Can be blocking if we add buffering to input channels
 					select {
 					case c <- val:
 						fmt.Println("Sent", val, "to", c)
-					default:
-						fmt.Println("Did not send", val, "to", c)
+						// default:
+						// 	fmt.Println("Did not send", val, "to", c)
 					}
 				}
 			}
@@ -48,7 +50,7 @@ func main() {
 
 	for _, v := range channels {
 		go func(name int, registerChan, unregisterChan chan (chan<- int)) {
-			self_chan := make(chan int)
+			self_chan := make(chan int, 10)
 
 			// Close is done by supervisor
 			// defer close(self_chan)
@@ -74,9 +76,11 @@ func main() {
 
 		}(v, registerChan, unregisterChan)
 	}
+	time.Sleep(1 * time.Second)
 
 	for v, _ := range channels {
 		fmt.Println("Want to send", v, "to all channels")
 		input <- v
 	}
+	time.Sleep(1 * time.Second)
 }
