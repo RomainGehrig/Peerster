@@ -8,10 +8,12 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"time"
 )
 
 // TODO Is is possible to remove this ?
 const BUFFERSIZE int = 1024
+const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 
 type PeerStatusObserver (chan<- PeerStatus)
 
@@ -70,6 +72,7 @@ type Dispatcher struct {
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
 	// fmt.Printf("Given arguments were: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
+	// TODO Handle empty peers list
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
 	if err != nil {
 		fmt.Println("Error when creating udpAddr", err)
@@ -243,11 +246,13 @@ func (g *Gossiper) DispatchPacket(wpacket *WrappedGossipPacket) {
 }
 
 func (g *Gossiper) HandleClientMessage(m *Message) {
+	fmt.Println("Handling a message from a client")
 	// TODO Handle rumor messages
 	if g.simpleMode {
 		msg := g.createClientMessage(m)
 		g.BroadcastMessage(msg, nil)
 	} else {
+		fmt.Println("Creating a rumor")
 		msg := g.createClientRumor(m)
 		g.HandleRumorMessage(msg, nil)
 	}
@@ -259,10 +264,13 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 	if len(rumorsToSend) > 0 {
 		// Start rumormongering
 		var rumor RumorMessage = g.rumorMsgs[rumorsToSend[0]]
+		g.dispatcher.input <- LocalizedPeerStatuses{sender: sender.String(), statuses: status.Want}
 		g.StartRumormongering(&rumor, sender)
 	} else if len(rumorsToAsk) > 0 {
 		// Send a StatusPacket
 		g.SendGossipPacket(g.createStatusMessage(), sender)
+	} else {
+		g.coinFlipRumorMongering(rumor, sender.String())
 	}
 }
 
@@ -271,13 +279,80 @@ func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) 
 	g.StartRumormongering(rumor, peerUDPAddr)
 }
 
+func (g *Gossiper) StartRumorMongeringProcess(rumor *RumorMessage, excluded ...string) (string, bool) {
+	// Pick a random neighbor and send rumor
+	// TODO Is sender.String() the right way to compare with other?
+	// TODO If we only have as single neighbor, we stop
+	randNeighbor, present := g.pickRandomNeighbor(excluded...)
+
+	fmt.Println("Sending the message to", randNeighbor, "because present=", present)
+
+	if present {
+		g.StartRumormongeringStr(rumor, randNeighbor)
+	}
+
+	return randNeighbor, present
+}
+
 func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDPAddr) {
+	// TODO Send message and create a goroutine waiting for the ack
 	// TODO Start timer for the timeout
 	// TODO Have to intercept the status packet that is relevant to the timeout
 	// TODO Act on StatusPacket -> left to reception ?
 	// TODO if timer is triggered, flip coin and restart rumormongering with a different peer
+	go func() {
+		observerChan := make(chan PeerStatusObserver)
+		timer := time.Tick(STATUS_MESSAGE_TIMEOUT)
 
-	// aorsitnao
+		unregister := func() {
+			timer.Stop()
+			g.dispatcher.registerChan <- RegistrationMessage{
+				observerChan: observerChan,
+				msgType:      Unregister,
+			}
+		}
+
+		// Register our channel to receive updates
+		g.dispatcher.registerChan <- RegistrationMessage{
+			observerChan: observerChan,
+			subject: StatusInterest{
+				sender:     peerUDPAddr.String(),
+				identifier: rumor.Origin},
+			msgType: Register,
+		}
+
+		for {
+			select {
+			case peerStatus, ok := <-observerChan:
+				// TODO Handle status
+				// Channel was closed by the dispatcher
+				if !ok {
+					return
+				}
+
+				// Accept all status that would validate the rumor ACK
+				if peerStatus.NextID >= rumor.ID {
+					unregister()
+				}
+
+			case <-timer: // Timed out
+				// Resend the rumor to another neighbor with prob 1/2
+				g.coinFlipRumorMongering(rumor, peerUDPAddr.String())
+				unregister()
+			}
+		}
+	}()
+
+	g.SendGossipPacket(rumor, peerUDPAddr)
+}
+
+func (g *Gossiper) coinFlipRumorMongering(rumor *RumorMessage, excluded ...string) {
+	if rand.Intn(2) == 0 {
+		neighbor, sent := g.StartRumorMongeringProcess(rumor, excluded)
+		if present {
+			fmt.Println("FLIPPED COIN sending rumor to", neighbor)
+		}
+	}
 }
 
 func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSend, rumorsToAsk []PeerStatus) {
@@ -326,35 +401,20 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) {
 	// Received a rumor message from sender
 	diff := g.SelfDiffRumorID(rumor)
+	fmt.Println("Diff between the rumor and nextID is", diff)
 	// Send back the status ACK for the message
-	// Want list is different in only one case: we accept the new rumor message
 	defer func() {
 		if sender != nil {
 			g.SendGossipPacket(g.createStatusMessage(), sender)
 		}
 	}()
 	switch {
-	case diff == 0: // TODO => we are in sync, ie. the rumor is not new
+	case diff == 0: // TODO => This rumor is what we wanted, so we accept it
+		fmt.Println("Accepting the rumor")
+		g.acceptRumorMessage(rumor)
+		g.StartRumorMongeringProcess(rumor, sender.String())
 	case diff > 0: // TODO => we are in advance, peer should send us a statusmessage afterwards in order to sync
-	case diff < 0: // TODO => we are late, add message to list iff diff == -1
-		if diff == -1 {
-			g.acceptRumorMessage(rumor)
-			// New message, so we monger
-			// TODO Is sender.String() the right way to compare with other?
-			// TODO If we only have as single neighbor, we stop
-			var randNeighbor string
-			var present bool
-
-			if sender != nil {
-				randNeighbor, present = g.pickRandomNeighbor(sender.String())
-			} else {
-				randNeighbor, present = g.pickRandomNeighbor()
-			}
-
-			if present {
-				g.StartRumormongeringStr(rumor, randNeighbor)
-			}
-		}
+	case diff < 0: // TODO => we are late, TODO: should send status ?
 	}
 }
 
