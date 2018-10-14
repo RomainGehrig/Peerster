@@ -3,11 +3,6 @@ package messages
 import "fmt"
 import "strings"
 
-///// Client messages
-type Message struct {
-	Text string
-}
-
 ///// Internode messages
 /// Status messages
 type PeerStatus struct {

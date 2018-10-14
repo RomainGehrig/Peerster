@@ -187,17 +187,16 @@ func (g *Gossiper) AntiEntropy() {
 	ticker := time.NewTicker(ANTIENTROPY_TIME)
 	defer ticker.Stop()
 	for {
-		fmt.Println("Antientropy waiting")
 		select {
 		case <-ticker.C:
 			neighbor, present := g.pickRandomNeighbor()
-			fmt.Println("Antientropy chose", neighbor)
 			if present {
 				g.SendGossipPacketStr(g.createStatusMessage(), neighbor)
 			}
 		}
 	}
 }
+
 func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientMsgs <-chan *Message) {
 	for {
 		select {
@@ -216,10 +215,10 @@ func (g *Gossiper) ClientMessages() <-chan *Message {
 	receivedMsgs := MessageReceiver(g.uiConn)
 	go func() {
 		for {
-			var message Message
+			var request Request
 			receivedMsg := <-receivedMsgs
-			protobuf.Decode(receivedMsg.packetBytes, &message)
-			out <- &message
+			protobuf.Decode(receivedMsg.packetBytes, &request)
+			out <- request.Post.Message
 		}
 	}()
 	return out
@@ -301,7 +300,6 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 	} else {
 		fmt.Println("IN SYNC WITH", sender)
 	}
-
 }
 
 func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) {
