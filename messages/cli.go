@@ -34,7 +34,7 @@ type Request struct {
 
 type Response struct {
 	Type   ResourceType
-	Rumors *[]RumorMessage
-	PeerID *string
-	Nodes  *[]string
+	Rumors []RumorMessage
+	PeerID string
+	Nodes  []string
 }

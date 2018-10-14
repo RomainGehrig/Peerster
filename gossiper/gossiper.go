@@ -45,6 +45,11 @@ type WrappedGossipPacket struct {
 	gossipMsg *GossipPacket
 }
 
+type WrappedClientRequest struct {
+	request *Request
+	sender  *net.UDPAddr
+}
+
 type RegistrationMessageType int
 
 const (
@@ -197,46 +202,80 @@ func (g *Gossiper) AntiEntropy() {
 	}
 }
 
-func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientRequests <-chan *Request) {
+func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientRequests <-chan *WrappedClientRequest) {
 	for {
 		select {
 		case wgp := <-peerMsgs:
 			g.DispatchPacket(wgp)
+			g.PrintPeers()
 		case cliReq := <-clientRequests:
 			g.DispatchClientRequest(cliReq)
 		}
-		g.PrintPeers()
 	}
 }
 
-func (g *Gossiper) DispatchClientRequest(req *Request) {
+func (g *Gossiper) SendClientResponse(resp *Response, addr *net.UDPAddr) {
+	packetBytes, err := protobuf.Encode(resp)
+	if err != nil {
+		fmt.Println(err)
+	}
+	_, err = g.uiConn.WriteToUDP(packetBytes, addr)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
+	req := wreq.request
+	sender := wreq.sender
+
 	switch {
 	case req.Get != nil:
+		var resp Response
+		resp.Type = req.Get.Type
+
 		switch req.Get.Type {
 		case NodeQuery:
+			nodes := g.knownPeers.ToSlice()
+			resp.Nodes = nodes
 		case MessageQuery:
+			rumors := g.AllRumors()
+			resp.Rumors = rumors
 		case PeerIDQuery:
+			resp.PeerID = g.Name
 		}
+		g.SendClientResponse(&resp, sender)
 	case req.Post != nil:
 		post := req.Post
 		switch {
 		case post.Node != nil:
-		// TODO
+			g.AddPeer(post.Node.Addr)
 		case post.Message != nil:
 			g.HandleClientMessage(post.Message)
+			g.PrintPeers()
 		}
 	}
 }
 
-func (g *Gossiper) ClientRequests() <-chan *Request {
-	out := make(chan *Request)
+func (g *Gossiper) AllRumors() []RumorMessage {
+	out := make([]RumorMessage, 0)
+
+	for _, msg := range g.rumorMsgs {
+		out = append(out, msg)
+	}
+
+	return out
+}
+
+func (g *Gossiper) ClientRequests() <-chan *WrappedClientRequest {
+	out := make(chan *WrappedClientRequest)
 	receivedMsgs := MessageReceiver(g.uiConn)
 	go func() {
 		for {
 			var request Request
 			receivedMsg := <-receivedMsgs
 			protobuf.Decode(receivedMsg.packetBytes, &request)
-			out <- &request
+			out <- &WrappedClientRequest{request: &request, sender: receivedMsg.sender}
 		}
 	}()
 	return out

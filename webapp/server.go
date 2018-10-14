@@ -9,10 +9,38 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/dedis/protobuf"
+	"net"
 )
 
+func waitForResponse(conn net.Conn) *Response {
+	packetBytes := make([]byte, 1024)
+
+	_, err := conn.Read(packetBytes)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	var resp Response
+	protobuf.Decode(packetBytes, &resp)
+	return &resp
+}
+
 func getMessages() []RumorMessage {
-	return
+	toSend := &Request{Get: &GetRequest{Type: MessageQuery}}
+	packetBytes, err := protobuf.Encode(toSend)
+	if err != nil {
+		fmt.Println(err)
+	}
+	conn, err := net.Dial("udp4", ":8080")
+	if err != nil {
+		fmt.Println(err)
+	}
+	conn.Write(packetBytes)
+
+	resp := waitForResponse(conn)
+	return resp.Rumors
 }
 
 func NodeHandler(w http.ResponseWriter, r *http.Request) {
@@ -24,9 +52,8 @@ func IdHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MessageHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("ResponseWriter is:", w, "request is:", r)
 	if r.Method == "GET" {
-		json.NewEncoder(w).Encode("GET")
+		json.NewEncoder(w).Encode(getMessages())
 	} else if r.Method == "POST" {
 		json.NewEncoder(w).Encode("POST")
 	}
