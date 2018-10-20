@@ -23,9 +23,9 @@ type SimpleMessage struct {
 
 /// Rumor messages
 type RumorMessage struct {
-	Origin string
-	ID     uint32
-	Text   string
+	Origin string `json:"origin"`
+	ID     uint32 `json:"id"`
+	Text   string `json:"text"`
 }
 
 //// Actual packet sent
