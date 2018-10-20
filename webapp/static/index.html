@@ -13,45 +13,60 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.1.0/css/all.css" integrity="sha384-lKuwvrZot6UHsBSfcMvOkWwlCMgc0TaWr+30HWe3a4ltaBwTZhyTEggF5tJv8tbt" crossorigin="anonymous">
     <link href="https://fonts.googleapis.com/css?family=Inconsolata" rel="stylesheet">
+    <link href="/css/style.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
   </head>
-  <body>
-      <div class="container" id="vuejs">
-          <h1>Gossiper</h1>
-          <div class="row">
-              <div class="col-6">
-                  <p>PeerID: <span>{{peerID}}</span></p>
+  <body class="top-navigation pace-done">
+      <div id="wrapper">
+          <div id="page-wrapper" class="gray-bg">
+              <div id="vuejs" class="wrapper wrapper-content">
+                  <div class="container">
+                      <div class="row">
+                          <div class="col-lg-8">
+                              <div class="ibox">
+                                  <div class="ibox-title">
+                                      <h1>Gossiper <small v-if="peerID != ''">(connected to <code>{{peerID}}</code>)</small><small v-else>(not connected)</small></h1>
+                                  </div>
+                                  <div class="ibox-content">
+                                      <div>
+                                          <div class="float-right"><strong>Origin/Seq</strong></div>
+                                          <h3>Messages</h3>
+                                      </div>
+
+                                      <message v-for="(message, index) in messages" v-bind:key="index" v-bind:message="message"></message>
+                                      <div class="hr-line-dashed"></div>
+                                      <div class="input-group">
+                                          <input type="text" class="form-control" placeholder="Type message...">
+                                          <span class="input-group-append"> <button type="button" class="btn btn-primary">Send message</button> </span>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                          <div class="col-lg-4">
+                              <div class="ibox">
+                                  <div class="ibox-title">
+                                      <h1>Known nodes</h1>
+                                  </div>
+                                  <div class="ibox-content">
+                                      <table class="table table-striped table-hover">
+                                          <tr v-for="(node, index) in nodes"><td><strong>{{node}}</strong></td></tr>
+                                      </table>
+                                      <div class="hr-line-dashed"></div>
+                                      <div class="input-group">
+                                          <input type="text" class="form-control" placeholder="ip:port">
+                                          <span class="input-group-append"> <button type="button" class="btn btn-primary">New node</button> </span>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
               </div>
-              <div class="col-6">
-                  <p>Known nodes</p>
-                  <ul>
-                      <li>NodeA: 127.0.0.1:3000</li>
-                      <li>NodeB: 127.0.0.1:3001</li>
-                      <li>NodeC: 127.0.0.1:3002</li>
-                  </ul>
-              </div>
-          </div>
-          <div class="row">
-              <ul>
-                  <li>Message 1 from A</li>
-                  <li>Message 2 from A</li>
-                  <li>Message 3 from A</li>
-                  <li>Message 1 from B</li>
-                  <li>Message 2 from B</li>
-              </ul>
-          </div>
-          <div class="row">
-              <ul>
-                  <li v-for="(msg, index) in messages">{{msg}}</li>
-              </ul>
-          </div>
-          <div class="row">
-              <input class="text" id="msg"/> <button type="button" id="submitMsg" class="btn btn-success">Submit message</button>
-          </div>
-          <div class="row">
-              <input class="text" id="node"/> <button type="button" id="submitNode" class="btn btn-success">Add new node</button>
           </div>
       </div>
       <script src="js/app.js"></script>
+      <script>
+       init();
+      </script>
   </body>
 </html>
