@@ -31,6 +31,7 @@ type Gossiper struct {
 	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
 	rumorMsgs        map[PeerStatus]RumorMessage
+	rumorLock        *sync.RWMutex
 	peerWantList     map[string](map[string]PeerStatus)
 	peerWantListLock *sync.RWMutex
 	dispatcher       *Dispatcher
@@ -115,6 +116,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		knownPeers:       StringSetInit(peers),
 		peerStatuses:     make(map[string]PeerStatus),
 		rumorMsgs:        make(map[PeerStatus]RumorMessage),
+		rumorLock:        &sync.RWMutex{},
 		peerWantList:     make(map[string](map[string]PeerStatus)),
 		peerWantListLock: &sync.RWMutex{},
 	}
@@ -279,6 +281,8 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 func (g *Gossiper) AllRumors() []RumorMessage {
 	out := make([]RumorMessage, 0)
 
+	g.rumorLock.RLock()
+	defer g.rumorLock.RUnlock()
 	for _, msg := range g.rumorMsgs {
 		out = append(out, msg)
 	}
@@ -362,7 +366,9 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 	// The priority is first to send rumors, then to ask for rumors
 	if len(rumorsToSend) > 0 {
 		// Start rumormongering
+		g.rumorLock.RLock()
 		var rumor RumorMessage = g.rumorMsgs[rumorsToSend[0]]
+		g.rumorLock.RUnlock()
 		g.dispatcher.input <- LocalizedPeerStatuses{sender: sender.String(), statuses: status.Want}
 		g.StartRumormongering(&rumor, sender)
 	} else if len(rumorsToAsk) > 0 {
@@ -605,7 +611,10 @@ func (g *Gossiper) AddPeer(peer string) {
 func (g *Gossiper) acceptRumorMessage(r *RumorMessage) {
 	oldPeerStatus, _ := g.peerStatuses[r.Origin]
 	newPeerStatus := PeerStatus{Identifier: r.Origin, NextID: r.ID + 1}
+
+	g.rumorLock.Lock()
 	g.rumorMsgs[oldPeerStatus] = *r
+	g.rumorLock.Unlock()
 	g.peerStatuses[r.Origin] = newPeerStatus
 }
 
