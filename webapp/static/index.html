@@ -7,7 +7,7 @@
     <title>Gossiper frontend</title>
 
     <!-- Bootstrap -->
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
@@ -36,8 +36,8 @@
                                       <message v-for="(message, index) in messages" v-bind:key="index" v-bind:message="message"></message>
                                       <div class="hr-line-dashed"></div>
                                       <div class="input-group">
-                                          <input type="text" class="form-control" placeholder="Type message...">
-                                          <span class="input-group-append"> <button type="button" class="btn btn-primary">Send message</button> </span>
+                                          <input type="text" id="messageText" class="form-control" placeholder="Type message...">
+                                          <span class="input-group-append"> <button type="button" class="btn btn-primary" onclick="clickSendMessage()">Send message</button> </span>
                                       </div>
                                   </div>
                               </div>
@@ -52,9 +52,12 @@
                                           <tr v-for="(node, index) in nodes"><td><strong>{{node}}</strong></td></tr>
                                       </table>
                                       <div class="hr-line-dashed"></div>
+                                      <div class="alert alert-danger custom-alert" id="nodeError" style="display: none">
+                                          The format of the node address is incorrect: use ip:port.
+                                      </div>
                                       <div class="input-group">
-                                          <input type="text" class="form-control" placeholder="ip:port">
-                                          <span class="input-group-append"> <button type="button" class="btn btn-primary">New node</button> </span>
+                                          <input type="text" id="nodeValue" class="form-control" placeholder="ip:port">
+                                          <span class="input-group-append"> <button type="button" class="btn btn-primary" onclick="clickNewNode()">New node</button> </span>
                                       </div>
                                   </div>
                               </div>

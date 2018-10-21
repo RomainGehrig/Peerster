@@ -17,6 +17,11 @@ let vue = new Vue({
 
 // TODO Callback on addNode and sendMessage (or just reload the page)
 function init() {
+    const msgText = document.getElementById("messageText");
+    msgText.addEventListener("keyup", onEnter(clickSendMessage));
+    const nodeAddr = document.getElementById("nodeValue");
+    nodeAddr.addEventListener("keyup", onEnter(clickNewNode));
+
     retrievePeerID();
     refreshInfo();
     setInterval(refreshInfo, 3000);
@@ -36,6 +41,9 @@ function compareStrings(s1, s2) {
 }
 
 function sortMessages(msgs) {
+    if (msgs === null)
+        return [];
+
     msgs.sort((a, b) => {
         if (a["origin"] == b["origin"])
             return a["id"] - b["id"];
@@ -48,8 +56,61 @@ function sortMessages(msgs) {
 }
 
 function sortNodes(nodes) {
+    if (nodes === null)
+        return [];
+
     nodes.sort();
     return nodes;
+}
+
+function onEnter(func) {
+    return function(event) {
+        event.preventDefault();
+        if (event.keyCode === 13) {
+            func();
+        }
+    };
+}
+
+function clickSendMessage() {
+    const elem = document.getElementById("messageText");
+    const text = elem.value;
+    // Reset text
+    elem.value = "";
+    sendMessage(text);
+    refreshInfo();
+}
+
+function clickNewNode() {
+    const elem = document.getElementById("nodeValue");
+    const addr = elem.value;
+
+    if (nodeAddrLooksValid(addr)) {
+        addNode(addr);
+        refreshInfo();
+    } else {
+        $("#nodeError").fadeIn();
+        setTimeout(() => $("#nodeError").fadeOut(), 3000);
+    }
+
+    elem.value = "";
+}
+
+function nodeAddrLooksValid(str) {
+    const splitted = str.split(":");
+    if (splitted.length !== 2)
+        return false;
+
+    const parsed = Number(splitted[1]);
+    // Is not a number
+    if (parsed === NaN)
+        return false;
+
+    // Is not an integer
+    if (~~parsed !== parsed)
+        return false;
+
+    return true;
 }
 
 // Messages
