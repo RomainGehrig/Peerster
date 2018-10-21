@@ -23,7 +23,12 @@ func main() {
 	flag.Parse()
 
 	// Read the list of peers from the string of peers
-	peers := strings.Split(*peersList, ",")
+	var peers []string
+	if *peersList != "" {
+		peers = strings.Split(*peersList, ",")
+	} else {
+		peers = nil
+	}
 
 	gossiper := NewGossiper(*uiPort, *gossipAddr, *name, peers, *simple)
 
