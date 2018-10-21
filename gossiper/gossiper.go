@@ -28,6 +28,7 @@ type Gossiper struct {
 	simpleMode bool
 	// TODO RWMutex on peerstatuses, rumormsgs, knownPeers ?
 	knownPeers       *StringSet
+	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
 	rumorMsgs        map[PeerStatus]RumorMessage
 	peerWantList     map[string](map[string]PeerStatus)
@@ -125,7 +126,11 @@ func (g *Gossiper) Run() {
 
 	go g.AntiEntropy()
 	g.dispatcher = RunPeerStatusDispatcher()
-	g.ListenForMessages(peerChan, clientChan)
+
+	sendChan := make(chan *WrappedGossipPacket, BUFFERSIZE)
+	g.sendChannel = sendChan
+
+	g.ListenForMessages(peerChan, clientChan, sendChan)
 }
 
 func (d *Dispatcher) mainLoop() {
@@ -202,7 +207,7 @@ func (g *Gossiper) AntiEntropy() {
 	}
 }
 
-func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientRequests <-chan *WrappedClientRequest) {
+func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clientRequests <-chan *WrappedClientRequest, sendGossipPacket <-chan *WrappedGossipPacket) {
 	for {
 		select {
 		case wgp := <-peerMsgs:
@@ -210,6 +215,17 @@ func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clien
 			g.PrintPeers()
 		case cliReq := <-clientRequests:
 			g.DispatchClientRequest(cliReq)
+		case wgp := <-sendGossipPacket:
+			gp := wgp.gossipMsg
+			peerUDPAddr := wgp.sender
+			packetBytes, err := protobuf.Encode(gp)
+			if err != nil {
+				fmt.Println(err)
+			}
+			_, err = g.conn.WriteToUDP(packetBytes, peerUDPAddr)
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
@@ -649,16 +665,7 @@ func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
 }
 
 func (g *Gossiper) SendGossipPacket(tgp ToGossipPacket, peerUDPAddr *net.UDPAddr) {
-	gp := tgp.ToGossipPacket()
-
-	packetBytes, err := protobuf.Encode(gp)
-	if err != nil {
-		fmt.Println(err)
-	}
-	_, err = g.conn.WriteToUDP(packetBytes, peerUDPAddr)
-	if err != nil {
-		fmt.Println(err)
-	}
+	g.sendChannel <- &WrappedGossipPacket{sender: peerUDPAddr, gossipMsg: tgp.ToGossipPacket()}
 
 	// TODO Handle the prints occuring when sending a packet
 	// => Only when mongering
