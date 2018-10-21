@@ -157,14 +157,16 @@ func (d *Dispatcher) mainLoop() {
 			case Unregister:
 				toClose := regMsg.observerChan
 				subject, present := observers[toClose]
-				if !present {
-					panic("Should only unregister after a registration !")
+				// TODO Find case where observer is not present
+				// Concurrent bug ? Sending a unregister before the register ? :O
+				if present {
+					delete(observers, toClose)
+					delete(subjects[subject], toClose)
+
+					close(toClose)
+				} else {
+					// fmt.Println("Should only unregister after a registration !")
 				}
-				delete(observers, toClose)
-				delete(subjects[subject], toClose)
-
-				close(toClose)
-
 			}
 		case newStatuses := <-d.input:
 			for _, peerStatus := range newStatuses.statuses {
@@ -185,7 +187,8 @@ func (d *Dispatcher) mainLoop() {
 func RunPeerStatusDispatcher() *Dispatcher {
 	// TODO Add buffering
 	inputChan := make(chan LocalizedPeerStatuses, BUFFERSIZE)
-	registerChan := make(chan RegistrationMessage, BUFFERSIZE)
+	// Register chan is unbuffered to prevent sending an unregister message registration
+	registerChan := make(chan RegistrationMessage)
 	dispatcher := &Dispatcher{input: inputChan, registerChan: registerChan}
 
 	go dispatcher.mainLoop()
@@ -445,14 +448,6 @@ func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDP
 		timer := time.NewTimer(STATUS_MESSAGE_TIMEOUT)
 		peer := peerUDPAddr.String()
 
-		unregister := func() {
-			timer.Stop()
-			g.dispatcher.registerChan <- RegistrationMessage{
-				observerChan: observerChan,
-				msgType:      Unregister,
-			}
-		}
-
 		// Register our channel to receive updates
 		g.dispatcher.registerChan <- RegistrationMessage{
 			observerChan: observerChan,
@@ -460,6 +455,15 @@ func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDP
 				sender:     peer,
 				identifier: rumor.Origin},
 			msgType: Register,
+		}
+
+		// Function to call to unregister our channel
+		unregister := func() {
+			timer.Stop()
+			g.dispatcher.registerChan <- RegistrationMessage{
+				observerChan: observerChan,
+				msgType:      Unregister,
+			}
 		}
 
 		for {
