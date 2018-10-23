@@ -77,7 +77,9 @@ function clickSendMessage() {
     const text = elem.value;
     // Reset text
     elem.value = "";
-    sendMessage(text);
+    if (text !== "") {
+        sendMessage(text);
+    }
     refreshInfo();
 }
 
