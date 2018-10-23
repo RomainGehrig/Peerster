@@ -22,7 +22,6 @@ function init() {
     const nodeAddr = document.getElementById("nodeValue");
     nodeAddr.addEventListener("keyup", onEnter(clickNewNode));
 
-    retrievePeerID();
     refreshInfo();
     setInterval(refreshInfo, 3000);
 }
@@ -30,6 +29,7 @@ function init() {
 function refreshInfo() {
     retrieveMessages();
     retrieveNodes();
+    retrievePeerID();
 }
 
 function compareStrings(s1, s2) {
