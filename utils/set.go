@@ -36,10 +36,10 @@ func (s *StringSet) Has(val string) bool {
 
 // Adapted from https://stackoverflow.com/a/35810932
 func (s *StringSet) Iterate() <-chan string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
 	c := make(chan string)
 	go func() {
+		s.lock.RLock()
+		defer s.lock.RUnlock()
 		for k, _ := range s.strMap {
 			c <- k
 		}
