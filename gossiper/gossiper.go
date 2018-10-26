@@ -78,8 +78,8 @@ type LocalizedPeerStatuses struct {
 }
 
 type Dispatcher struct {
-	input        chan LocalizedPeerStatuses
-	registerChan chan RegistrationMessage
+	statusChannel chan LocalizedPeerStatuses
+	registerChan  chan RegistrationMessage
 }
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
@@ -170,7 +170,7 @@ func (d *Dispatcher) mainLoop() {
 					// fmt.Println("Should only unregister after a registration !")
 				}
 			}
-		case newStatuses := <-d.input:
+		case newStatuses := <-d.statusChannel:
 			for _, peerStatus := range newStatuses.statuses {
 				subject := StatusInterest{sender: newStatuses.sender, identifier: peerStatus.Identifier}
 				interestedChans, present := subjects[subject]
@@ -191,7 +191,7 @@ func RunPeerStatusDispatcher() *Dispatcher {
 	inputChan := make(chan LocalizedPeerStatuses, BUFFERSIZE)
 	// Register chan is unbuffered to prevent sending an unregister message registration
 	registerChan := make(chan RegistrationMessage)
-	dispatcher := &Dispatcher{input: inputChan, registerChan: registerChan}
+	dispatcher := &Dispatcher{statusChannel: inputChan, registerChan: registerChan}
 
 	go dispatcher.mainLoop()
 
@@ -369,7 +369,9 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 		g.rumorLock.RLock()
 		var rumor RumorMessage = g.rumorMsgs[rumorsToSend[0]]
 		g.rumorLock.RUnlock()
-		g.dispatcher.input <- LocalizedPeerStatuses{sender: sender.String(), statuses: status.Want}
+
+		g.InformStatusReception(&LocalizedPeerStatuses{sender: sender.String(), statuses: status.Want})
+
 		g.StartRumormongering(&rumor, sender)
 	} else if len(rumorsToAsk) > 0 {
 		// Send a StatusPacket
@@ -377,6 +379,10 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 	} else {
 		fmt.Println("IN SYNC WITH", sender)
 	}
+}
+
+func (g *Gossiper) InformStatusReception(lps *LocalizedPeerStatuses) {
+	g.dispatcher.statusChannel <- *lps
 }
 
 func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) {
