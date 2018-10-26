@@ -588,9 +588,13 @@ func (g *Gossiper) WantList() []PeerStatus {
 	return peerStatuses
 }
 
-func (g *Gossiper) updateRoutingTable(origin string, peerAddr string) {
+func (g *Gossiper) updateRoutingTable(origin string, newPeerAddr string) {
 	// TODO Locks !
-	g.routingTable[origin] = peerAddr
+	prevPeerAddr, present := g.routingTable[origin]
+	if !present || newPeerAddr != prevPeerAddr {
+		g.routingTable[origin] = newPeerAddr
+		fmt.Println("DSDV", origin, newPeerAddr)
+	}
 }
 
 // A return value =0 means we are sync, >0 we are in advance, <0 we are late
