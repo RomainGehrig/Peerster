@@ -27,6 +27,7 @@ type Gossiper struct {
 	Name             string
 	simpleMode       bool
 	knownPeers       *StringSet
+	routingTable     map[string]string // From Origin to ip:port
 	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
 	rumorMsgs        map[PeerStatus]RumorMessage
@@ -112,6 +113,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simpleMode:       simple,
 		Name:             name,
 		knownPeers:       StringSetInit(peers),
+		routingTable:     make(map[string]string),
 		peerStatuses:     make(map[string]PeerStatus),
 		rumorMsgs:        make(map[PeerStatus]RumorMessage),
 		rumorLock:        &sync.RWMutex{},
@@ -562,9 +564,15 @@ func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) 
 	}()
 
 	// This rumor is what we wanted, so we accept it
+	// => Rumor is a new rumor message
 	if diff == 0 {
 		g.acceptRumorMessage(rumor)
-		g.StartRumorMongeringProcess(rumor, sender.String())
+		if sender != nil {
+			g.updateRoutingTable(rumor.Origin, sender.String())
+			g.StartRumorMongeringProcess(rumor, sender.String())
+		} else {
+			g.StartRumorMongeringProcess(rumor)
+		}
 	}
 
 	// Other cases are:
@@ -578,6 +586,11 @@ func (g *Gossiper) WantList() []PeerStatus {
 		peerStatuses = append(peerStatuses, peerStatus)
 	}
 	return peerStatuses
+}
+
+func (g *Gossiper) updateRoutingTable(origin string, peerAddr string) {
+	// TODO Locks !
+	g.routingTable[origin] = peerAddr
 }
 
 // A return value =0 means we are sync, >0 we are in advance, <0 we are late
