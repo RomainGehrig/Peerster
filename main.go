@@ -18,6 +18,7 @@ func main() {
 	gossipAddr := flag.String("gossipAddr", "127.0.0.1:5000", "ip:addr for the gossiper")
 	name := flag.String("name", "", "name of the gossiper")
 	peersList := flag.String("peers", "", "comma separated list of peers of the form ip:port")
+	rtimer := flag.Int("rtimer", 0, "route rumors sending period in seconds, 0 to disable sending of route rumors (default 0)")
 	simple := flag.Bool("simple", false, "run gossiper in simple broadcast mode")
 
 	flag.Parse()
@@ -30,7 +31,7 @@ func main() {
 		peers = nil
 	}
 
-	gossiper := NewGossiper(*uiPort, *gossipAddr, *name, peers, *simple)
+	gossiper := NewGossiper(*uiPort, *gossipAddr, *name, peers, *rtimer, *simple)
 
 	gossiper.Run()
 }

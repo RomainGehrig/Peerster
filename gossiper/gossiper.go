@@ -24,6 +24,7 @@ type Gossiper struct {
 	conn             *net.UDPConn
 	uiAddress        *net.UDPAddr
 	uiConn           *net.UDPConn
+	rtimer           int
 	Name             string
 	simpleMode       bool
 	knownPeers       *StringSet
@@ -82,7 +83,7 @@ type Dispatcher struct {
 	registerChan  chan RegistrationMessage
 }
 
-func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
+func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
 	// fmt.Printf("Given arguments were: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
 	if err != nil {
@@ -110,6 +111,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		conn:             udpConn,
 		uiAddress:        udpUIAddr,
 		uiConn:           udpUIConn,
+		rtimer:           rtimer,
 		simpleMode:       simple,
 		Name:             name,
 		knownPeers:       StringSetInit(peers),
