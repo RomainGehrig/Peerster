@@ -20,13 +20,12 @@ const ANTIENTROPY_TIME = 1 * time.Second
 type PeerStatusObserver (chan<- PeerStatus)
 
 type Gossiper struct {
-	address    *net.UDPAddr
-	conn       *net.UDPConn
-	uiAddress  *net.UDPAddr
-	uiConn     *net.UDPConn
-	Name       string
-	simpleMode bool
-	// TODO RWMutex on peerstatuses, rumormsgs, knownPeers ?
+	address          *net.UDPAddr
+	conn             *net.UDPConn
+	uiAddress        *net.UDPAddr
+	uiConn           *net.UDPConn
+	Name             string
+	simpleMode       bool
 	knownPeers       *StringSet
 	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
@@ -84,7 +83,6 @@ type Dispatcher struct {
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, simple bool) *Gossiper {
 	// fmt.Printf("Given arguments were: %s, %s, %s, %s, %s\n", uiPort, gossipAddr, name, peers[0], simple)
-	// TODO Handle empty peers list
 	udpAddr, err := net.ResolveUDPAddr("udp4", gossipAddr)
 	if err != nil {
 		fmt.Println("Error when creating udpAddr", err)
@@ -147,7 +145,6 @@ func (d *Dispatcher) mainLoop() {
 		case regMsg := <-d.registerChan:
 			switch regMsg.msgType {
 			case Register:
-				// TODO
 				subject := regMsg.subject
 				mp, present := subjects[subject]
 				if !present {
@@ -187,7 +184,6 @@ func (d *Dispatcher) mainLoop() {
 }
 
 func RunPeerStatusDispatcher() *Dispatcher {
-	// TODO Add buffering
 	inputChan := make(chan LocalizedPeerStatuses, BUFFERSIZE)
 	// Register chan is unbuffered to prevent sending an unregister message registration
 	registerChan := make(chan RegistrationMessage)
@@ -324,7 +320,6 @@ func MessageReceiver(conn *net.UDPConn) <-chan *ReceivedMessage {
 		for {
 			packetBytes := make([]byte, BUFFERSIZE)
 			_, sender, _ := conn.ReadFromUDP(packetBytes)
-			// TODO Is it safe to only pass a reference to the byte array?
 			out <- &ReceivedMessage{packetBytes, sender}
 		}
 	}()
@@ -392,8 +387,6 @@ func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) 
 
 func (g *Gossiper) StartRumorMongeringProcess(rumor *RumorMessage, excluded ...string) (string, bool) {
 	// Pick a random neighbor and send rumor
-	// TODO Is sender.String() the right way to compare with other?
-	// TODO If we only have as single neighbor, we stop
 	randNeighbor, present := g.pickRandomNeighbor(excluded...)
 
 	if present {
@@ -407,12 +400,16 @@ func (g *Gossiper) getPeerWantList(peer string) []PeerStatus {
 	g.peerWantListLock.RLock()
 	defer g.peerWantListLock.RUnlock()
 
-	statusList, _ := g.peerWantList[peer]
+	statusList, present := g.peerWantList[peer]
+	if !present {
+		return nil
+	}
+
 	wantList := make([]PeerStatus, len(statusList))
 	for _, peerStatus := range statusList {
 		wantList = append(wantList, peerStatus)
 	}
-	// TODO if not present, are we returning a nil slice ?
+
 	return wantList
 }
 
@@ -428,7 +425,6 @@ func (g *Gossiper) updatePeerState(peer string, newPeerStatus PeerStatus) (updat
 
 	g.peerWantListLock.Lock()
 	defer g.peerWantListLock.Unlock()
-
 	mp, present := g.peerWantList[peer]
 	if !present {
 		mp = make(map[string]PeerStatus)
@@ -450,11 +446,6 @@ func (g *Gossiper) updatePeerState(peer string, newPeerStatus PeerStatus) (updat
 }
 
 func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDPAddr) {
-	// TODO Send message and create a goroutine waiting for the ack
-	// TODO Start timer for the timeout
-	// TODO Have to intercept the status packet that is relevant to the timeout
-	// TODO Act on StatusPacket -> left to reception ?
-	// TODO if timer is triggered, flip coin and restart rumormongering with a different peer
 	go func() {
 		observerChan := make(chan PeerStatus, BUFFERSIZE)
 		timer := time.NewTimer(STATUS_MESSAGE_TIMEOUT)
@@ -533,7 +524,6 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 		currStatus, present := g.peerStatuses[peerStatus.Identifier]
 		if !present {
 			// We didn't know this origin before
-			// TODO NextID starts at zero ?
 			rumorsToAsk = append(rumorsToAsk, PeerStatus{Identifier: peerStatus.Identifier, NextID: 1})
 		} else if currStatus.NextID < peerStatus.NextID {
 			// We are late on rumors from this origin
@@ -551,7 +541,6 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 	// See if we have origins that they don't have (the other cases are handled already)
 	for peerID, _ := range g.peerStatuses {
 		if !otherOriginsSet.Has(peerID) {
-			// TODO NextID starts at zero?
 			rumorsToSend = append(rumorsToSend, PeerStatus{Identifier: peerID, NextID: 1})
 		}
 	}
@@ -563,24 +552,28 @@ func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSen
 func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) {
 	// Received a rumor message from sender
 	diff := g.SelfDiffRumorID(rumor)
-	// Send back the status ACK for the message
+
+	// No matter what, we will send a status back:
 	defer func() {
+		// Send back the status ACK for the message if it wasn't sent by the local client
 		if sender != nil {
 			g.SendGossipPacket(g.createStatusMessage(), sender)
 		}
 	}()
-	switch {
-	case diff == 0: // TODO => This rumor is what we wanted, so we accept it
+
+	// This rumor is what we wanted, so we accept it
+	if diff == 0 {
 		g.acceptRumorMessage(rumor)
 		g.StartRumorMongeringProcess(rumor, sender.String())
-	case diff > 0: // TODO => we are in advance, peer should send us a statusmessage afterwards in order to sync
-	case diff < 0: // TODO => we are late => we will send status message
 	}
+
+	// Other cases are:
+	// - diff > 0: We are in advance, peer should send us a statusmessage afterwards in order to sync
+	// - diff < 0: We are late => we will send status message
 }
 
 func (g *Gossiper) WantList() []PeerStatus {
 	peerStatuses := make([]PeerStatus, 0)
-	// TODO RLock ?
 	for _, peerStatus := range g.peerStatuses {
 		peerStatuses = append(peerStatuses, peerStatus)
 	}
@@ -670,7 +663,6 @@ func (g *Gossiper) createClientMessage(m *Message) *SimpleMessage {
 func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
 	selfStatus, present := g.peerStatuses[g.Name]
 	var nextID uint32
-	// TODO NextID starts at zero ?
 	if !present {
 		nextID = 1
 	} else {
@@ -686,8 +678,8 @@ func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
 func (g *Gossiper) SendGossipPacket(tgp ToGossipPacket, peerUDPAddr *net.UDPAddr) {
 	g.sendChannel <- &WrappedGossipPacket{sender: peerUDPAddr, gossipMsg: tgp.ToGossipPacket()}
 
-	// TODO Handle the prints occuring when sending a packet
-	// => Only when mongering
+	// Handle the prints occuring when sending a packet
+	// => Only when mongering, at least in part 1
 	switch tgp.(type) {
 	case *RumorMessage:
 		fmt.Println("MONGERING with", peerUDPAddr)
@@ -699,7 +691,6 @@ func (g *Gossiper) SendGossipPacketStr(tgp ToGossipPacket, peerAddr string) {
 	g.SendGossipPacket(tgp, peerUDPAddr)
 }
 
-// TODO Thread safety of knownPeers
 func (g *Gossiper) BroadcastMessage(m *SimpleMessage, excludedPeers *StringSet) {
 	for peer := range g.knownPeers.Iterate() {
 		if excludedPeers == nil || !excludedPeers.Has(peer) {
