@@ -24,7 +24,7 @@ type Gossiper struct {
 	conn             *net.UDPConn
 	uiAddress        *net.UDPAddr
 	uiConn           *net.UDPConn
-	rtimer           int
+	rtimer           time.Duration
 	Name             string
 	simpleMode       bool
 	knownPeers       *StringSet
@@ -111,7 +111,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		conn:             udpConn,
 		uiAddress:        udpUIAddr,
 		uiConn:           udpUIConn,
-		rtimer:           rtimer,
+		rtimer:           time.Duration(rtimer) * time.Second,
 		simpleMode:       simple,
 		Name:             name,
 		knownPeers:       StringSetInit(peers),
@@ -128,11 +128,14 @@ func (g *Gossiper) Run() {
 	peerChan := g.PeersMessages()
 	clientChan := g.ClientRequests()
 
-	go g.AntiEntropy()
-	g.dispatcher = RunPeerStatusDispatcher()
-
 	sendChan := make(chan *WrappedGossipPacket, BUFFERSIZE)
 	g.sendChannel = sendChan
+
+	go g.AntiEntropy()
+	if g.rtimer != 0 {
+		go g.RunRoutingMessages()
+	}
+	g.dispatcher = RunPeerStatusDispatcher()
 
 	g.ListenForMessages(peerChan, clientChan, sendChan)
 }
@@ -196,6 +199,32 @@ func RunPeerStatusDispatcher() *Dispatcher {
 	go dispatcher.mainLoop()
 
 	return dispatcher
+}
+
+func (g *Gossiper) RunRoutingMessages() {
+	ticker := time.NewTicker(g.rtimer)
+	defer ticker.Stop()
+
+	// Start by sending a routing message to all neighbors
+	g.SendRoutingMessage(g.knownPeers.ToSlice()...)
+
+	for {
+		// Wait for ticker
+		<-ticker.C
+
+		neighbor, present := g.pickRandomNeighbor()
+		if present {
+			g.SendRoutingMessage(neighbor)
+		}
+	}
+}
+
+func (g *Gossiper) SendRoutingMessage(peers ...string) {
+	routingMessage := g.createClientRumor(&Message{Text: ""})
+
+	for _, p := range peers {
+		g.SendGossipPacketStr(routingMessage, p)
+	}
 }
 
 func (g *Gossiper) AntiEntropy() {
@@ -500,6 +529,7 @@ func (g *Gossiper) StartRumormongering(rumor *RumorMessage, peerUDPAddr *net.UDP
 		}
 	}()
 
+	fmt.Println("MONGERING with", peerUDPAddr)
 	g.SendGossipPacket(rumor, peerUDPAddr)
 }
 
@@ -566,7 +596,6 @@ func (g *Gossiper) HandleRumorMessage(rumor *RumorMessage, sender *net.UDPAddr) 
 	}()
 
 	// This rumor is what we wanted, so we accept it
-	// => Rumor is a new rumor message
 	if diff == 0 {
 		g.acceptRumorMessage(rumor)
 		if sender != nil {
@@ -696,13 +725,6 @@ func (g *Gossiper) createClientRumor(m *Message) *RumorMessage {
 
 func (g *Gossiper) SendGossipPacket(tgp ToGossipPacket, peerUDPAddr *net.UDPAddr) {
 	g.sendChannel <- &WrappedGossipPacket{sender: peerUDPAddr, gossipMsg: tgp.ToGossipPacket()}
-
-	// Handle the prints occuring when sending a packet
-	// => Only when mongering, at least in part 1
-	switch tgp.(type) {
-	case *RumorMessage:
-		fmt.Println("MONGERING with", peerUDPAddr)
-	}
 }
 
 func (g *Gossiper) SendGossipPacketStr(tgp ToGossipPacket, peerAddr string) {
