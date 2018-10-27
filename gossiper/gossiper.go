@@ -81,7 +81,7 @@ type LocalizedPeerStatuses struct {
 }
 
 type Dispatcher struct {
-	statusChannel chan LocalizedPeerStatuses
+	statusChannel chan *LocalizedPeerStatuses
 	registerChan  chan RegistrationMessage
 }
 
@@ -194,7 +194,7 @@ func (d *Dispatcher) mainLoop() {
 }
 
 func RunPeerStatusDispatcher() *Dispatcher {
-	inputChan := make(chan LocalizedPeerStatuses, BUFFERSIZE)
+	inputChan := make(chan *LocalizedPeerStatuses, BUFFERSIZE)
 	// Register chan is unbuffered to prevent sending an unregister message registration
 	registerChan := make(chan RegistrationMessage)
 	dispatcher := &Dispatcher{statusChannel: inputChan, registerChan: registerChan}
@@ -499,7 +499,7 @@ func (g *Gossiper) HandleStatusMessage(status *StatusPacket, sender *net.UDPAddr
 }
 
 func (g *Gossiper) InformStatusReception(lps *LocalizedPeerStatuses) {
-	g.dispatcher.statusChannel <- *lps
+	g.dispatcher.statusChannel <- lps
 }
 
 func (g *Gossiper) StartRumormongeringStr(rumor *RumorMessage, peerAddr string) {
