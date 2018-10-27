@@ -16,6 +16,7 @@ import (
 const BUFFERSIZE int = 1024
 const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 const ANTIENTROPY_TIME = 1 * time.Second
+const DEFAULT_HOP_LIMIT = 10
 
 type PeerStatusObserver (chan<- PeerStatus)
 
@@ -28,6 +29,7 @@ type Gossiper struct {
 	Name             string
 	simpleMode       bool
 	knownPeers       *StringSet
+	privateMsgs      []*PrivateMessage // TODO better datastructure ?
 	routingTable     map[string]string // From Origin to ip:port
 	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
@@ -115,6 +117,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simpleMode:       simple,
 		Name:             name,
 		knownPeers:       StringSetInit(peers),
+		privateMsgs:      make([]*PrivateMessage, 0),
 		routingTable:     make(map[string]string),
 		peerStatuses:     make(map[string]PeerStatus),
 		rumorMsgs:        make(map[PeerStatus]RumorMessage),
@@ -385,6 +388,11 @@ func (g *Gossiper) DispatchPacket(wpacket *WrappedGossipPacket) {
 	case packet.Status != nil:
 		fmt.Println(packet.Status.StringWithSender(sender.String()))
 		g.HandleStatusMessage(packet.Status, sender)
+	case packet.Private != nil:
+		if packet.Private.Destination == g.Name {
+			fmt.Println(packet.Private)
+		}
+		g.HandlePrivateMessage(packet.Private)
 	}
 }
 
@@ -394,8 +402,77 @@ func (g *Gossiper) HandleClientMessage(m *Message) {
 		msg := g.createClientMessage(m)
 		g.BroadcastMessage(msg, nil)
 	} else {
-		msg := g.createClientRumor(m)
-		g.HandleRumorMessage(msg, nil)
+		// No destination specified => message is a rumor
+		if m.Dest == "" {
+			msg := g.createClientRumor(m)
+			g.HandleRumorMessage(msg, nil)
+		} else { // Message is a private message
+			msg := g.createPrivateMessage(m)
+			g.HandlePrivateMessage(msg)
+		}
+	}
+}
+
+func (g *Gossiper) HandlePrivateMessage(p *PrivateMessage) {
+	if p.Destination == g.Name {
+		g.receivePrivateMessage(p)
+	} else {
+		newPM, shouldSend := g.preparePrivateMessage(p)
+		if !shouldSend {
+			return
+		}
+		nextHop, valid := g.FindRouteTo(p.Destination)
+		if valid {
+			g.SendGossipPacketStr(newPM, nextHop)
+		}
+	}
+}
+
+func (g *Gossiper) receivePrivateMessage(p *PrivateMessage) {
+	// TODO Locks ?
+	// TODO Better datastructure ?
+	g.privateMsgs = append(g.privateMsgs, p)
+}
+
+/* Modifies in place the PrivateMessage given as argument */
+func (g *Gossiper) preparePrivateMessage(p *PrivateMessage) (newPM *PrivateMessage, valid bool) {
+	newPM = p
+	// Won't forward
+	if p.HopLimit <= 1 {
+		p.HopLimit = 0
+		valid = false
+		return
+	}
+
+	// Will forward
+	p.HopLimit -= 1
+	valid = true
+	return
+}
+
+func (g *Gossiper) FindRouteTo(dest string) (neighbor string, valid bool) {
+	// TODO Locking
+	neighbor, valid = g.routingTable[dest]
+
+	// For the moment, we can only send message to destination we know, ie that
+	// are in the routing table. So logically, we know the route. If we don't,
+	// someone tried to send a message to a destination that does not exist or
+	// that we don't know yet.
+	// TODO Fallback to sending to a random neighbor ?
+	if !valid {
+		fmt.Println("Destination", dest, "not found in the routing table.")
+	}
+
+	return
+}
+
+func (g *Gossiper) createPrivateMessage(m *Message) *PrivateMessage {
+	return &PrivateMessage{
+		Origin:      g.Name,
+		ID:          0, // TODO maybe do some kind of ordering
+		Text:        m.Text,
+		Destination: m.Dest,
+		HopLimit:    DEFAULT_HOP_LIMIT + 1, // Add 1 because we are going to decrement it when sending
 	}
 }
 
