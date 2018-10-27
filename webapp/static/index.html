@@ -28,16 +28,19 @@
                                       <h1>Gossiper <small v-if="peerID != ''">(connected to <code>{{peerID}}</code>)</small><small v-else>(not connected)</small></h1>
                                   </div>
                                   <div class="ibox-content">
-                                      <div>
-                                          <div class="float-right"><strong>Origin/Seq</strong></div>
-                                          <h3>Messages</h3>
-                                      </div>
-
-                                      <message v-for="(message, index) in messages" v-bind:key="index" v-bind:message="message"></message>
-                                      <div class="hr-line-dashed"></div>
-                                      <div class="input-group">
-                                          <input type="text" id="messageText" class="form-control" placeholder="Type message...">
-                                          <span class="input-group-append"> <button type="button" class="btn btn-primary" onclick="clickSendMessage()">Send message</button> </span>
+                                      <div class="tabs-container">
+                                          <ul class="nav nav-tabs gray-bg" role="tablist">
+                                              <li v-for="(msgs, origin) in tabs">
+                                                  <a class="nav-link" :href="'#'+origin" :class="{ active: activeTab == origin, show: activeTab == origin }" onclick="changeTab(this.hash)">{{origin}}</a>
+                                              </li>
+                                          </ul>
+                                          <div class="tab-content">
+                                              <div>
+                                                  <div class="float-right"><strong>Origin/Seq</strong></div>
+                                                  <h3>Messages</h3>
+                                              </div>
+                                              <tab-content v-for="(msgs, origin) in tabs" :destination="origin" :messages="msgs" :active="origin == activeTab" />
+                                          </div>
                                       </div>
                                   </div>
                               </div>
@@ -69,7 +72,7 @@
                                       <table class="table table-striped table-hover">
                                           <tr v-for="(origin, index) in origins">
                                               <td><strong>{{origin}}</strong>
-                                                  <div class="float-right"><button type="button" class="btn btn-outline-info btn-sm"><i class="far fa-paper-plane"></i></button></div>
+                                                  <div class="float-right"><a :href="'#'+origin" class="btn btn-outline-info btn-sm" onclick="wantToSendMessageTo(this.hash)"><i class="far fa-paper-plane"></i></a></div>
                                               </td>
                                           </tr>
                                       </table>

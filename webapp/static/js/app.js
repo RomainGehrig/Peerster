@@ -6,13 +6,29 @@ Vue.component('message', {
     props: ["message"]
 });
 
+Vue.component('tab-content', {
+    template: ` <div role="tabpanel" :id="destination" class="tab-pane" :class="{ 'active': active, show: active }">
+                    <message v-for="(message, index) in messages" v-bind:message="message"></message>
+                    <div class="hr-line-dashed"></div>
+                    <div class="input-group">
+                        <input type="text" id="messageText" class="form-control" placeholder="Type message...">
+                        <span class="input-group-append"> <button type="button" class="btn btn-primary" onclick="clickSendMessage()">Send message to {{destination}}</button> </span>
+                    </div>
+                </div>`,
+    props: ["destination", "messages", "active"]
+});
+
+const RUMOR_TAB = "_rumors";
+
 let vue = new Vue({
     el: "#vuejs",
     data: {
-        messages: [],
+        // messages: [],
         nodes: [],
         peerID: "",
-        origins: []
+        origins: [],
+        activeTab: RUMOR_TAB,
+        tabs: { [RUMOR_TAB]: [], node1: [{id: 1, origin: "Dog", text: "Hello hooman"}] }
     }
 });
 
@@ -56,6 +72,23 @@ function sortMessages(msgs) {
     return msgs;
 }
 
+function wantToSendMessageTo(hash) {
+    changeTab(hash);
+
+    const dest = stripHash(hash, RUMOR_TAB);
+    if (!(dest in vue.tabs)) {
+        Vue.set(vue.tabs, dest, []);
+    }
+}
+
+function stripHash(hash, defaultValue) {
+    if (hash === "") {
+        return defaultValue;
+    } else {
+        return hash.slice(1);
+    }
+}
+
 function sortNodes(nodes) {
     if (nodes === null)
         return [];
@@ -73,9 +106,14 @@ function onEnter(func) {
     };
 }
 
+function changeTab(hash) {
+    vue.activeTab = stripHash(hash, RUMOR_TAB);
+}
+
 function clickSendMessage() {
     const elem = document.getElementById("messageText");
     const text = elem.value;
+
     // Reset text
     elem.value = "";
     if (text !== "") {
@@ -122,7 +160,7 @@ async function sendMessage(msg) {
 }
 
 async function retrieveMessages() {
-    jsonGet("/message").then((obj) => vue.messages = sortMessages(obj["messages"]));
+    jsonGet("/message").then((obj) => Vue.set(vue.tabs, RUMOR_TAB, sortMessages(obj["messages"])));
 }
 
 // ID
