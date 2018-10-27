@@ -47,6 +47,11 @@ func reqToResp(req *Request) *Response {
 	return waitForResponse(conn)
 }
 
+func getOrigins() []string {
+	toSend := &Request{Get: &GetRequest{Type: OriginsQuery}}
+	return reqToResp(toSend).Origins
+}
+
 func getMessages() []RumorMessage {
 	toSend := &Request{Get: &GetRequest{Type: MessageQuery}}
 	return reqToResp(toSend).Rumors
@@ -105,6 +110,14 @@ func IdHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(peerID)
 }
 
+func OriginsHandler(w http.ResponseWriter, r *http.Request) {
+	var origins struct {
+		Origins []string `json:"origins"`
+	}
+	origins.Origins = getOrigins()
+	json.NewEncoder(w).Encode(origins)
+}
+
 func MessageHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		var messages struct {
@@ -125,17 +138,16 @@ func MessageHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 
-	// r.Handle("/admin", handlers.LoggingHandler(os.Stdout, http.HandlerFunc(ShowAdminDashboard)))
 	r.HandleFunc("/message", MessageHandler).Methods("GET", "POST")
 	r.HandleFunc("/node", NodeHandler).Methods("GET", "POST")
 	r.HandleFunc("/id", IdHandler).Methods("GET")
+	r.HandleFunc("/origins", OriginsHandler).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 
 	srv := &http.Server{
-		Handler: r,
-		Addr:    "127.0.0.1:8080",
-		// Good practice: enforce timeouts for servers you create!
+		Handler:      r,
+		Addr:         "127.0.0.1:8080",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}

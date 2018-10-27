@@ -11,11 +11,11 @@ let vue = new Vue({
     data: {
         messages: [],
         nodes: [],
-        peerID: ""
+        peerID: "",
+        origins: []
     }
 });
 
-// TODO Callback on addNode and sendMessage (or just reload the page)
 function init() {
     const msgText = document.getElementById("messageText");
     msgText.addEventListener("keyup", onEnter(clickSendMessage));
@@ -30,6 +30,7 @@ function refreshInfo() {
     retrieveMessages();
     retrieveNodes();
     retrievePeerID();
+    retrieveOrigins();
 }
 
 function compareStrings(s1, s2) {
@@ -127,6 +128,11 @@ async function retrieveMessages() {
 // ID
 async function retrievePeerID() {
     jsonGet("/id").then((obj) => vue.peerID = obj["id"]);
+}
+
+// Origins
+async function retrieveOrigins() {
+    jsonGet("/origins").then((obj) => vue.origins = sortNodes(obj["origins"]));
 }
 
 // Nodes

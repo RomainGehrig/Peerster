@@ -275,6 +275,16 @@ func (g *Gossiper) SendClientResponse(resp *Response, addr *net.UDPAddr) {
 	}
 }
 
+func (g *Gossiper) Origins() []string {
+	// TODO Locking
+	origins := make([]string, 0)
+	for origin, _ := range g.routingTable {
+		origins = append(origins, origin)
+	}
+
+	return origins
+}
+
 func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 	req := wreq.request
 	sender := wreq.sender
@@ -293,6 +303,8 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 			resp.Rumors = rumors
 		case PeerIDQuery:
 			resp.PeerID = g.Name
+		case OriginsQuery:
+			resp.Origins = g.Origins()
 		}
 		g.SendClientResponse(&resp, sender)
 	case req.Post != nil:

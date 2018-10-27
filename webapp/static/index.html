@@ -61,6 +61,20 @@
                                       </div>
                                   </div>
                               </div>
+                              <div class="ibox">
+                                  <div class="ibox-title">
+                                      <h1>Origins</h1>
+                                  </div>
+                                  <div class="ibox-content">
+                                      <table class="table table-striped table-hover">
+                                          <tr v-for="(origin, index) in origins">
+                                              <td><strong>{{origin}}</strong>
+                                                  <div class="float-right"><button type="button" class="btn btn-outline-info btn-sm"><i class="far fa-paper-plane"></i></button></div>
+                                              </td>
+                                          </tr>
+                                      </table>
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   </div>

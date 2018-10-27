@@ -7,6 +7,7 @@ const (
 	NodeQuery ResourceType = iota
 	MessageQuery
 	PeerIDQuery
+	OriginsQuery
 )
 
 type GetRequest struct {
@@ -33,8 +34,9 @@ type Request struct {
 }
 
 type Response struct {
-	Type   ResourceType
-	Rumors []RumorMessage
-	PeerID string
-	Nodes  []string
+	Type    ResourceType
+	Rumors  []RumorMessage
+	PeerID  string
+	Nodes   []string
+	Origins []string
 }
