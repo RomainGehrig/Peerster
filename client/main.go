@@ -17,12 +17,13 @@ func main() {
 
 	uiPort := flag.String("UIPort", "8080", "port for the UI client")
 	msg := flag.String("msg", "", "message to be sent")
+	dest := flag.String("dest", "", "destination for the private message")
 
 	flag.Parse()
 
 	address := fmt.Sprintf(":%s", *uiPort)
 
-	toSend := &Request{Post: &PostRequest{Message: &Message{Text: *msg}}}
+	toSend := &Request{Post: &PostRequest{Message: &Message{Text: *msg, Dest: *dest}}}
 	packetBytes, err := protobuf.Encode(toSend)
 	if err != nil {
 		fmt.Println(err)

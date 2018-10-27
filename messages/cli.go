@@ -17,6 +17,7 @@ type GetRequest struct {
 ///// Post Request
 type Message struct {
 	Text string
+	Dest string
 }
 
 type Node struct {
