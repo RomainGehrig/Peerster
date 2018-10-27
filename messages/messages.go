@@ -28,11 +28,21 @@ type RumorMessage struct {
 	Text   string `json:"text"`
 }
 
+/// Private messages
+type PrivateMessage struct {
+	Origin      string
+	ID          uint32
+	Text        string
+	Destination string
+	HopLimit    uint32
+}
+
 //// Actual packet sent
 type GossipPacket struct {
-	Simple *SimpleMessage
-	Rumor  *RumorMessage
-	Status *StatusPacket
+	Simple  *SimpleMessage
+	Rumor   *RumorMessage
+	Status  *StatusPacket
+	Private *PrivateMessage
 }
 
 /// Print functions
@@ -46,6 +56,10 @@ func (simple *SimpleMessage) String() string {
 
 func (rumor *RumorMessage) StringWithSender(sender string) string {
 	return fmt.Sprintf("RUMOR origin %s from %s ID %d contents %s", rumor.Origin, sender, rumor.ID, rumor.Text)
+}
+
+func (p *PrivateMessage) String() string {
+	return fmt.Sprintf("PRIVATE origin %s hop-limit %d contents %s", p.Origin, p.HopLimit, p.Text)
 }
 
 func (status *StatusPacket) StringWithSender(sender string) string {
@@ -80,4 +94,8 @@ func (r *RumorMessage) ToGossipPacket() *GossipPacket {
 
 func (sp *StatusPacket) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{Status: sp}
+}
+
+func (p *PrivateMessage) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{Private: p}
 }
