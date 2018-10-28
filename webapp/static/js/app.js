@@ -11,11 +11,19 @@ Vue.component('tab-content', {
                     <message v-for="(message, index) in messages" v-bind:message="message"></message>
                     <div class="hr-line-dashed"></div>
                     <div class="input-group">
-                        <input type="text" id="messageText" class="form-control" placeholder="Type message...">
-                        <span class="input-group-append"> <button type="button" class="btn btn-primary" onclick="clickSendMessage()">Send message to {{destination}}</button> </span>
+                        <input type="text" :id="'messageText-' + destination" v-on:keyup="sendOnEnter(destination)($event)" class="form-control" placeholder="Type message...">
+                        <span class="input-group-append">
+                           <a :href="'#'+destination" class="btn btn-primary" onclick="clickSendMessage(this.hash)">Send message to {{destination}}</a>
+                        </span>
                     </div>
                 </div>`,
-    props: ["destination", "messages", "active"]
+    props: ["destination", "messages", "active"],
+    methods: {
+        sendOnEnter: function(destination) {
+            // TODO Clean this hash mess
+            return onEnter(clickSendMessage, "#"+destination);
+        }
+    }
 });
 
 const RUMOR_TAB = "_rumors";
@@ -28,13 +36,11 @@ let vue = new Vue({
         peerID: "",
         origins: [],
         activeTab: RUMOR_TAB,
-        tabs: { [RUMOR_TAB]: [], node1: [{id: 1, origin: "Dog", text: "Hello hooman"}] }
+        tabs: {[RUMOR_TAB]: []}
     }
 });
 
 function init() {
-    const msgText = document.getElementById("messageText");
-    msgText.addEventListener("keyup", onEnter(clickSendMessage));
     const nodeAddr = document.getElementById("nodeValue");
     nodeAddr.addEventListener("keyup", onEnter(clickNewNode));
 
@@ -98,11 +104,11 @@ function sortNodes(nodes) {
     return nodes;
 }
 
-function onEnter(func) {
+function onEnter(func, ...args) {
     return function(event) {
         event.preventDefault();
         if (event.keyCode === 13) {
-            func();
+            func(...args);
         }
     };
 }
@@ -111,14 +117,19 @@ function changeTab(hash) {
     vue.activeTab = stripHash(hash, RUMOR_TAB);
 }
 
-function clickSendMessage() {
-    const elem = document.getElementById("messageText");
+function clickSendMessage(hash) {
+    const destination = stripHash(hash, RUMOR_TAB);
+    const elem = document.getElementById(`messageText-${destination}`);
     const text = elem.value;
-
     // Reset text
     elem.value = "";
+
     if (text !== "") {
-        sendMessage(text);
+        if (destination === RUMOR_TAB) {
+            sendMessage(text);
+        } else {
+            sendPrivateMessage(text, destination);
+        }
     }
     refreshInfo();
 }
@@ -126,6 +137,7 @@ function clickSendMessage() {
 function clickNewNode() {
     const elem = document.getElementById("nodeValue");
     const addr = elem.value;
+    elem.value = "";
 
     if (nodeAddrLooksValid(addr)) {
         addNode(addr);
@@ -135,7 +147,6 @@ function clickNewNode() {
         setTimeout(() => $("#nodeError").fadeOut(), 3000);
     }
 
-    elem.value = "";
 }
 
 function nodeAddrLooksValid(str) {
@@ -162,6 +173,10 @@ async function sendMessage(msg) {
 
 async function retrieveMessages() {
     jsonGet("/message").then((obj) => Vue.set(vue.tabs, RUMOR_TAB, sortMessages(obj["messages"])));
+}
+
+async function sendPrivateMessage(msg, dest) {
+    return jsonPost("/pmessage", JSON.stringify({"text": msg, "dest": dest}));
 }
 
 async function retrievePrivateMessages() {
