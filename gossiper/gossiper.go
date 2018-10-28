@@ -302,7 +302,7 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 			nodes := g.knownPeers.ToSlice()
 			resp.Nodes = nodes
 		case MessageQuery:
-			rumors := g.AllRumors()
+			rumors := g.AllRumorsForClient()
 			resp.Rumors = rumors
 		case PeerIDQuery:
 			resp.PeerID = g.Name
@@ -324,13 +324,15 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 	}
 }
 
-func (g *Gossiper) AllRumors() []RumorMessage {
+func (g *Gossiper) AllRumorsForClient() []RumorMessage {
 	out := make([]RumorMessage, 0)
 
 	g.rumorLock.RLock()
 	defer g.rumorLock.RUnlock()
 	for _, msg := range g.rumorMsgs {
-		out = append(out, msg)
+		if msg.Text != "" {
+			out = append(out, msg)
+		}
 	}
 
 	return out
