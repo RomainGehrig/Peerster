@@ -8,6 +8,7 @@ const (
 	MessageQuery
 	PeerIDQuery
 	OriginsQuery
+	PrivateMessageQuery
 )
 
 type GetRequest struct {
@@ -35,9 +36,10 @@ type Request struct {
 }
 
 type Response struct {
-	Type    ResourceType
-	Rumors  []RumorMessage
-	PeerID  string
-	Nodes   []string
-	Origins []string
+	Type            ResourceType
+	Rumors          []RumorMessage
+	PrivateMessages []PrivateMessage
+	PeerID          string
+	Nodes           []string
+	Origins         []string
 }

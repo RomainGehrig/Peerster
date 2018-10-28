@@ -29,7 +29,7 @@ type Gossiper struct {
 	Name             string
 	simpleMode       bool
 	knownPeers       *StringSet
-	privateMsgs      []*PrivateMessage // TODO better datastructure ?
+	privateMsgs      []PrivateMessage  // TODO better datastructure ?
 	routingTable     map[string]string // From Origin to ip:port
 	sendChannel      chan<- *WrappedGossipPacket
 	peerStatuses     map[string]PeerStatus
@@ -117,7 +117,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simpleMode:       simple,
 		Name:             name,
 		knownPeers:       StringSetInit(peers),
-		privateMsgs:      make([]*PrivateMessage, 0),
+		privateMsgs:      make([]PrivateMessage, 0),
 		routingTable:     make(map[string]string),
 		peerStatuses:     make(map[string]PeerStatus),
 		rumorMsgs:        make(map[PeerStatus]RumorMessage),
@@ -308,6 +308,8 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 			resp.PeerID = g.Name
 		case OriginsQuery:
 			resp.Origins = g.Origins()
+		case PrivateMessageQuery:
+			resp.PrivateMessages = g.privateMsgs
 		}
 		g.SendClientResponse(&resp, sender)
 	case req.Post != nil:
@@ -431,7 +433,7 @@ func (g *Gossiper) HandlePrivateMessage(p *PrivateMessage) {
 func (g *Gossiper) receivePrivateMessage(p *PrivateMessage) {
 	// TODO Locks ?
 	// TODO Better datastructure ?
-	g.privateMsgs = append(g.privateMsgs, p)
+	g.privateMsgs = append(g.privateMsgs, *p)
 }
 
 /* Modifies in place the PrivateMessage given as argument */

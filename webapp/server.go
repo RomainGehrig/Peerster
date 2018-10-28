@@ -52,6 +52,11 @@ func getOrigins() []string {
 	return reqToResp(toSend).Origins
 }
 
+func getPrivateMessages() []PrivateMessage {
+	toSend := &Request{Get: &GetRequest{Type: PrivateMessageQuery}}
+	return reqToResp(toSend).PrivateMessages
+}
+
 func getMessages() []RumorMessage {
 	toSend := &Request{Get: &GetRequest{Type: MessageQuery}}
 	return reqToResp(toSend).Rumors
@@ -69,6 +74,11 @@ func getPeerID() string {
 
 func postNewMessage(text string) {
 	toSend := &Request{Post: &PostRequest{Message: &Message{Text: text}}}
+	sendQuery(toSend).Close()
+}
+
+func postNewPrivateMessage(text string, dest string) {
+	toSend := &Request{Post: &PostRequest{Message: &Message{Text: text, Dest: dest}}}
 	sendQuery(toSend).Close()
 }
 
@@ -135,6 +145,28 @@ func MessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func PrivateMessageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		origins := make(map[string][]PrivateMessage)
+		for _, msg := range getPrivateMessages() {
+			lst, present := origins[msg.Origin]
+			if !present {
+				lst = make([]PrivateMessage, 0)
+			}
+			origins[msg.Origin] = append(lst, msg)
+		}
+		json.NewEncoder(w).Encode(origins)
+	} else if r.Method == "POST" {
+		var message struct {
+			Text string `json:"text"`
+			Dest string `json:"dest"`
+		}
+		json.NewDecoder(r.Body).Decode(&message)
+		postNewPrivateMessage(message.Text, message.Dest)
+		ackPOST(true, w)
+	}
+}
+
 func main() {
 	r := mux.NewRouter()
 
@@ -142,6 +174,7 @@ func main() {
 	r.HandleFunc("/node", NodeHandler).Methods("GET", "POST")
 	r.HandleFunc("/id", IdHandler).Methods("GET")
 	r.HandleFunc("/origins", OriginsHandler).Methods("GET")
+	r.HandleFunc("/pmessage", PrivateMessageHandler).Methods("GET", "POST")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 

@@ -44,6 +44,7 @@ function init() {
 
 function refreshInfo() {
     retrieveMessages();
+    retrievePrivateMessages();
     retrieveNodes();
     retrievePeerID();
     retrieveOrigins();
@@ -161,6 +162,14 @@ async function sendMessage(msg) {
 
 async function retrieveMessages() {
     jsonGet("/message").then((obj) => Vue.set(vue.tabs, RUMOR_TAB, sortMessages(obj["messages"])));
+}
+
+async function retrievePrivateMessages() {
+    jsonGet("/pmessage").then((obj) => {
+        for (origin in obj) {
+            Vue.set(vue.tabs, origin, obj[origin]);
+        }
+    });
 }
 
 // ID
