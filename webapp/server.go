@@ -148,12 +148,25 @@ func MessageHandler(w http.ResponseWriter, r *http.Request) {
 func PrivateMessageHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		origins := make(map[string][]PrivateMessage)
+		// TODO Save the name so we don't need to request it every time ?
+		selfName := getPeerID()
 		for _, msg := range getPrivateMessages() {
-			lst, present := origins[msg.Origin]
+
+			// We want to group the messages we send to a destination
+			// with the messages we received from it (the "nodeOfInterest")
+			var nodeOfInterest string
+			// If we sent the message, the destination is the one that is important
+			if selfName == msg.Origin {
+				nodeOfInterest = msg.Destination
+			} else {
+				nodeOfInterest = msg.Origin
+			}
+
+			lst, present := origins[nodeOfInterest]
 			if !present {
 				lst = make([]PrivateMessage, 0)
 			}
-			origins[msg.Origin] = append(lst, msg)
+			origins[nodeOfInterest] = append(lst, msg)
 		}
 		json.NewEncoder(w).Encode(origins)
 	} else if r.Method == "POST" {

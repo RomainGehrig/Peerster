@@ -421,6 +421,11 @@ func (g *Gossiper) HandlePrivateMessage(p *PrivateMessage) {
 	if p.Destination == g.Name {
 		g.receivePrivateMessage(p)
 	} else {
+		// Save messages that are sent by us
+		if p.Origin == g.Name {
+			g.receivePrivateMessage(p)
+		}
+
 		newPM, shouldSend := g.preparePrivateMessage(p)
 		if !shouldSend {
 			return

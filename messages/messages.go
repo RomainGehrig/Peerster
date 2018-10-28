@@ -33,7 +33,7 @@ type PrivateMessage struct {
 	Origin      string `json:"origin"`
 	ID          uint32 `json:"id"`
 	Text        string `json:"text"`
-	Destination string
+	Destination string `json:"destination"`
 	HopLimit    uint32
 }
 
