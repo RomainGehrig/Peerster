@@ -134,6 +134,9 @@ func (g *Gossiper) Run() {
 	sendChan := make(chan *WrappedGossipPacket, BUFFERSIZE)
 	g.sendChannel = sendChan
 
+	// Small improvement: directly set ourself as the best route to get to ourself
+	g.updateRoutingTable(g.Name, g.address.String())
+
 	go g.AntiEntropy()
 	if g.rtimer != 0 {
 		go g.RunRoutingMessages()
