@@ -146,7 +146,7 @@ func (g *Gossiper) Run() {
 	g.ListenForMessages(peerChan, clientChan, sendChan)
 }
 
-func (d *Dispatcher) mainLoop() {
+func (d *Dispatcher) watchForMessages() {
 	// Keep a "list" of observers per subject of interest
 	// TODO Change bool to something else (empty struct ?)
 	subjects := make(map[StatusInterest](map[PeerStatusObserver]bool))
@@ -202,7 +202,7 @@ func RunPeerStatusDispatcher() *Dispatcher {
 	registerChan := make(chan RegistrationMessage)
 	dispatcher := &Dispatcher{statusChannel: inputChan, registerChan: registerChan}
 
-	go dispatcher.mainLoop()
+	go dispatcher.watchForMessages()
 
 	return dispatcher
 }
@@ -404,6 +404,7 @@ func (g *Gossiper) DispatchPacket(wpacket *WrappedGossipPacket) {
 }
 
 func (g *Gossiper) HandleClientMessage(m *Message) {
+	// TODO Print in case of PrivateMessage ?
 	fmt.Println(m)
 	if g.simpleMode {
 		msg := g.createClientMessage(m)
@@ -637,6 +638,7 @@ func (g *Gossiper) coinFlipRumorMongering(rumor *RumorMessage, excludedPeers ...
 	}
 }
 
+/* Current implementation may have multiple times the same rumor in rumorsToSend/rumorsToAsk */
 func (g *Gossiper) computeRumorStatusDiff(otherStatus []PeerStatus) (rumorsToSend, rumorsToAsk []PeerStatus) {
 	// Need to find messages that are new from the sender => easy: for each message, ask if message is in g.msgs
 	// Need to find messages that are new to the sender => messages status that are not in status:
@@ -728,7 +730,7 @@ func (g *Gossiper) updateRoutingTable(origin string, peerAddr PeerAddress) {
 
 // A return value =0 means we are sync, >0 we are in advance, <0 we are late
 func (g *Gossiper) SelfDiffRumorID(rumor *RumorMessage) int {
-	// TODO put initialization elsewhere
+	// TODO put initialization elsewhere ?
 	peerStatus, present := g.peerStatuses[rumor.Origin]
 	if !present {
 		peerStatus = PeerStatus{

@@ -16,6 +16,8 @@ type GetRequest struct {
 }
 
 ///// Post Request
+
+// If Dest is left empty, the message is considered a Rumor
 type Message struct {
 	Text string
 	Dest string
