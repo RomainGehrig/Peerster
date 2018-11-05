@@ -1,9 +1,11 @@
 package peers
 
 import (
+	"fmt"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
+	"strings"
 	"sync"
 )
 
@@ -57,6 +59,10 @@ func (p *PeersHandler) AddPeer(peerAddr PeerAddress) {
 		}
 	}
 	p.knownPeers = append(p.knownPeers, peerAddr)
+}
+
+func (p *PeersHandler) PrintPeers() {
+	fmt.Printf("PEERS %s\n", strings.Join(p.AllPeersStr(), ","))
 }
 
 func (p *PeersHandler) PickRandomNeighbor(excludedAddresses ...PeerAddress) (PeerAddress, bool) {

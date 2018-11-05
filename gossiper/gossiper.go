@@ -8,7 +8,6 @@ import (
 	"github.com/dedis/protobuf"
 	"math/rand"
 	"net"
-	"strings"
 	"sync"
 	"time"
 )
@@ -154,7 +153,7 @@ func (g *Gossiper) ListenForMessages(peerMsgs <-chan *WrappedGossipPacket, clien
 		select {
 		case wgp := <-peerMsgs:
 			g.DispatchPacket(wgp)
-			g.PrintPeers()
+			g.peers.PrintPeers()
 		case cliReq := <-clientRequests:
 			g.DispatchClientRequest(cliReq)
 		case wgp := <-sendGossipPacket:
@@ -224,7 +223,7 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 			g.peers.AddPeer(ResolvePeerAddress(post.Node.Addr))
 		case post.Message != nil:
 			g.HandleClientMessage(post.Message)
-			g.PrintPeers()
+			g.peers.PrintPeers()
 		}
 	}
 }
@@ -653,8 +652,4 @@ func (g *Gossiper) BroadcastMessage(m *SimpleMessage, excludedPeers *StringSet) 
 			g.SendGossipPacket(m, peer)
 		}
 	}
-}
-
-func (g *Gossiper) PrintPeers() {
-	fmt.Printf("PEERS %s\n", strings.Join(g.peers.AllPeersStr(), ","))
 }
