@@ -54,7 +54,7 @@ func (simple *SimpleMessage) String() string {
 	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", simple.OriginalName, simple.RelayPeerAddr, simple.Contents)
 }
 
-func (rumor *RumorMessage) StringWithSender(sender string) string {
+func (rumor *RumorMessage) StringWithSender(sender fmt.Stringer) string {
 	return fmt.Sprintf("RUMOR origin %s from %s ID %d contents %s", rumor.Origin, sender, rumor.ID, rumor.Text)
 }
 
@@ -62,7 +62,7 @@ func (p *PrivateMessage) String() string {
 	return fmt.Sprintf("PRIVATE origin %s hop-limit %d contents %s", p.Origin, p.HopLimit, p.Text)
 }
 
-func (status *StatusPacket) StringWithSender(sender string) string {
+func (status *StatusPacket) StringWithSender(sender fmt.Stringer) string {
 	wantStr := make([]string, 0)
 	for _, peerStatus := range status.Want {
 		wantStr = append(wantStr, peerStatus.String())
