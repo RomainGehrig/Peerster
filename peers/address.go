@@ -1,7 +1,9 @@
-package utils
+package peers
 
-import "net"
-import "fmt"
+import (
+	"fmt"
+	"net"
+)
 
 type PeerAddress interface {
 	ToUDPAddr() *net.UDPAddr
