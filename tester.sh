@@ -7,7 +7,7 @@ gossipPort=2000
 
 i=$1
 name="node$i"
-rtimer=10
+rtimer=20
 gossipPort=$(($gossipPort+i))
 peerPort=$((($gossipPort-1)%10+2000))
 UIPort=$(($UIPort+i))
