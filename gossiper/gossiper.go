@@ -319,7 +319,7 @@ func (g *Gossiper) DispatchClientRequest(wreq *WrappedClientRequest) {
 		post := req.Post
 		switch {
 		case post.Node != nil:
-			g.AddPeer(StringAddress{post.Node.Addr})
+			g.AddPeer(ResolvePeerAddress(post.Node.Addr))
 		case post.Message != nil:
 			g.HandleClientMessage(post.Message)
 			g.PrintPeers()
