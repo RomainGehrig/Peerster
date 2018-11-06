@@ -9,6 +9,13 @@ import (
 	"sync"
 )
 
+type PeersHandler struct {
+	knownPeers       []PeerAddress
+	peerWantList     map[string](map[string]PeerStatus)
+	peerWantListLock *sync.RWMutex
+	dispatcher       *Dispatcher
+}
+
 type PeerStatusObserver (chan<- PeerStatus)
 
 // TODO Better name
@@ -21,13 +28,6 @@ type StatusInterest struct {
 type LocalizedPeerStatuses struct {
 	Sender   PeerAddress
 	Statuses []PeerStatus
-}
-
-type PeersHandler struct {
-	knownPeers       []PeerAddress
-	peerWantList     map[string](map[string]PeerStatus)
-	peerWantListLock *sync.RWMutex
-	dispatcher       *Dispatcher
 }
 
 func NewPeersHandler(peers []string) *PeersHandler {

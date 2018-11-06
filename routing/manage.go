@@ -1,0 +1,99 @@
+package routing
+
+import (
+	"fmt"
+	. "github.com/RomainGehrig/Peerster/network"
+	. "github.com/RomainGehrig/Peerster/peers"
+	. "github.com/RomainGehrig/Peerster/rumors"
+	"time"
+)
+
+type RoutingHandler struct {
+	routingTable map[string]string // From Origin to ip:port
+	rtimer       time.Duration
+
+	// Modules needed by this handler
+	net    *NetworkHandler
+	peers  *PeersHandler
+	rumors *RumorHandler
+}
+
+func NewRoutingHandler(rtimer time.Duration) *RoutingHandler {
+	return &RoutingHandler{
+		routingTable: make(map[string]string),
+		rtimer:       rtimer,
+	}
+}
+
+func (r *RoutingHandler) RunRoutingHandler(peers *PeersHandler, net *NetworkHandler, rumors *RumorHandler) {
+	r.peers = peers
+	r.net = net
+	r.rumors = rumors
+	go r.runRoutingMessages()
+}
+
+func (r *RoutingHandler) runRoutingMessages() {
+	if r.rtimer == 0 {
+		return
+	}
+
+	ticker := time.NewTicker(r.rtimer)
+	defer ticker.Stop()
+
+	// Start by sending a routing message to all neighbors
+	r.SendRoutingMessage(r.peers.AllPeers()...)
+
+	for {
+		// Wait for ticker
+		<-ticker.C
+
+		neighbor, present := r.peers.PickRandomNeighbor()
+		if present {
+			r.SendRoutingMessage(neighbor)
+		}
+	}
+}
+
+func (r *RoutingHandler) KnownOrigins() []string {
+	// TODO Locking
+	origins := make([]string, 0)
+	for origin, _ := range r.routingTable {
+		origins = append(origins, origin)
+	}
+
+	return origins
+}
+
+func (r *RoutingHandler) UpdateRoutingTable(origin string, peerAddr PeerAddress) {
+	newPeerAddr := peerAddr.String()
+	// TODO Locks !
+	prevPeerAddr, present := r.routingTable[origin]
+	if !present || newPeerAddr != prevPeerAddr {
+		r.routingTable[origin] = newPeerAddr
+		fmt.Println("DSDV", origin, newPeerAddr)
+	}
+}
+
+func (r *RoutingHandler) SendRoutingMessage(peers ...PeerAddress) {
+	routingMessage := r.rumors.CreateClientRumor("")
+
+	for _, p := range peers {
+		r.net.SendGossipPacket(routingMessage, p)
+	}
+}
+
+func (r *RoutingHandler) FindRouteTo(dest string) (PeerAddress, bool) {
+	// TODO Locking
+	neighborAddr, valid := r.routingTable[dest]
+
+	// For the moment, we can only send message to destination we know, ie that
+	// are in the routing table. So logically, we know the route. If we don't,
+	// someone tried to send a message to a destination that does not exist or
+	// that we don't know yet.
+	// TODO Fallback to sending to a random neighbor ?
+	if !valid {
+		fmt.Println("Destination", dest, "not found in the routing table.")
+	}
+
+	return StringAddress{neighborAddr}, valid
+}
