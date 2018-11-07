@@ -1,7 +1,6 @@
 package simple
 
 import (
-	"github.com/RomainGehrig/Peerster/interfaces"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
@@ -9,18 +8,21 @@ import (
 )
 
 type SimpleHandler struct {
-	// TODO GOssiperLike is bad
-	tmpGoss interfaces.GossiperLike
+	// TODO Name/address is bad
+	name    string
+	address string
 	net     *NetworkHandler
 	peers   *PeersHandler
 }
 
-func NewSimpleHandler() *SimpleHandler {
-	return &SimpleHandler{}
+func NewSimpleHandler(name string, address string) *SimpleHandler {
+	return &SimpleHandler{
+		name:    name,
+		address: address,
+	}
 }
 
-func (s *SimpleHandler) RunSimpleHandler(goss interfaces.GossiperLike, net *NetworkHandler, peers *PeersHandler) {
-	s.tmpGoss = goss
+func (s *SimpleHandler) RunSimpleHandler(net *NetworkHandler, peers *PeersHandler) {
 	s.net = net
 	s.peers = peers
 }
@@ -30,15 +32,15 @@ func (s *SimpleHandler) RunSimpleHandler(goss interfaces.GossiperLike, net *Netw
 func (s *SimpleHandler) CreateForwardedMessage(msg *SimpleMessage) *SimpleMessage {
 	return &SimpleMessage{
 		OriginalName:  msg.OriginalName,
-		RelayPeerAddr: s.tmpGoss.GetAddress(),
+		RelayPeerAddr: s.address,
 		Contents:      msg.Contents}
 }
 
 // We are the original sender of this message
 func (s *SimpleHandler) CreateSimpleMessage(text string) *SimpleMessage {
 	return &SimpleMessage{
-		OriginalName:  s.tmpGoss.GetName(),
-		RelayPeerAddr: s.tmpGoss.GetAddress(),
+		OriginalName:  s.name,
+		RelayPeerAddr: s.address,
 		Contents:      text}
 }
 

@@ -9,9 +9,6 @@ type GossiperLike interface {
 	DispatchClientRequest(req *Request, sender PeerAddress)
 	DispatchPacket(packet *GossipPacket, sender PeerAddress)
 	WantList() []PeerStatus
-	// TODO Delete
-	GetName() string
-	GetAddress() string
 }
 
 type UpdatableRouter interface {
