@@ -2,6 +2,7 @@ package routing
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/rumors"
@@ -41,7 +42,7 @@ func (r *RoutingHandler) runRoutingMessages() {
 	defer ticker.Stop()
 
 	// Start by sending a routing message to all neighbors
-	r.SendRoutingMessage(r.peers.AllPeers()...)
+	r.sendRoutingMessage(r.peers.AllPeers()...)
 
 	for {
 		// Wait for ticker
@@ -49,7 +50,7 @@ func (r *RoutingHandler) runRoutingMessages() {
 
 		neighbor, present := r.peers.PickRandomNeighbor()
 		if present {
-			r.SendRoutingMessage(neighbor)
+			r.sendRoutingMessage(neighbor)
 		}
 	}
 }
@@ -74,7 +75,7 @@ func (r *RoutingHandler) UpdateRoutingTable(origin string, peerAddr PeerAddress)
 	}
 }
 
-func (r *RoutingHandler) SendRoutingMessage(peers ...PeerAddress) {
+func (r *RoutingHandler) sendRoutingMessage(peers ...PeerAddress) {
 	routingMessage := r.rumors.CreateClientRumor("")
 
 	for _, p := range peers {
@@ -82,7 +83,18 @@ func (r *RoutingHandler) SendRoutingMessage(peers ...PeerAddress) {
 	}
 }
 
-func (r *RoutingHandler) FindRouteTo(dest string) (PeerAddress, bool) {
+func (r *RoutingHandler) SendPacketTo(gp ToGossipPacket, dest string) bool {
+	nextHop, valid := r.findRouteTo(dest)
+	if !valid {
+		return false
+	}
+
+	r.net.SendGossipPacket(gp, nextHop)
+
+	return true
+}
+
+func (r *RoutingHandler) findRouteTo(dest string) (PeerAddress, bool) {
 	// TODO Locking
 	neighborAddr, valid := r.routingTable[dest]
 

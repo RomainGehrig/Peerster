@@ -45,10 +45,8 @@ func (p *PrivateHandler) HandlePrivateMessage(pm *PrivateMessage) {
 		if !shouldSend {
 			return
 		}
-		nextHop, valid := p.routing.FindRouteTo(pm.Destination)
-		if valid {
-			p.net.SendGossipPacket(newPM, nextHop)
-		}
+
+		p.routing.SendPacketTo(newPM, pm.Destination)
 	}
 }
 
