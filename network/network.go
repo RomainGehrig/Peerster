@@ -2,6 +2,7 @@ package network
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	"github.com/RomainGehrig/Peerster/interfaces"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
@@ -17,8 +18,6 @@ type NetworkHandler struct {
 	dispatcher  interfaces.MessageDispatcher
 	sendChannel chan<- *wrappedGossipPacket
 }
-
-const CHANNEL_BUFFERSIZE int = 1024
 
 // TODO delete
 func (n *NetworkHandler) GetAddress() string {
@@ -109,7 +108,7 @@ func (n *NetworkHandler) SendGossipPacket(tgp ToGossipPacket, peerAddr PeerAddre
 }
 
 func (n *NetworkHandler) clientMessagesReceiver() <-chan *wrappedClientRequest {
-	out := make(chan *wrappedClientRequest)
+	out := make(chan *wrappedClientRequest, CHANNEL_BUFFERSIZE)
 	receivedMsgs := messageReceiver(n.uiConn)
 	go func() {
 		for {
@@ -140,7 +139,7 @@ func messageReceiver(conn *net.UDPConn) <-chan *receivedMessage {
 	out := make(chan *receivedMessage, CHANNEL_BUFFERSIZE)
 	go func() {
 		for {
-			packetBytes := make([]byte, CHANNEL_BUFFERSIZE)
+			packetBytes := make([]byte, UDP_DATAGRAM_MAX_SIZE)
 			_, sender, _ := conn.ReadFromUDP(packetBytes)
 			out <- &receivedMessage{packetBytes, UDPAddress{sender}}
 		}

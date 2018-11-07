@@ -4,6 +4,7 @@ import (
 	// "github.com/gorilla/handlers"
 	"encoding/json"
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	"github.com/gorilla/mux"
 	"log"
@@ -15,7 +16,7 @@ import (
 )
 
 func waitForResponse(conn net.Conn) *Response {
-	packetBytes := make([]byte, 1024)
+	packetBytes := make([]byte, UDP_DATAGRAM_MAX_SIZE)
 
 	_, err := conn.Read(packetBytes)
 	if err != nil {

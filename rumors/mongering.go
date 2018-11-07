@@ -2,6 +2,7 @@ package rumors
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/utils"
@@ -22,7 +23,7 @@ func (r *RumorHandler) StartRumorMongeringProcess(rumor *RumorMessage, excluded 
 
 func (r *RumorHandler) StartRumormongering(rumor *RumorMessage, peerAddr PeerAddress) {
 	go func() {
-		observerChan := make(chan PeerStatus, BUFFERSIZE_TMP)
+		observerChan := make(chan PeerStatus, CHANNEL_BUFFERSIZE)
 		timer := time.NewTimer(STATUS_MESSAGE_TIMEOUT)
 
 		// Register our channel to receive updates

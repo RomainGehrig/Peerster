@@ -1,8 +1,10 @@
 package peers
 
-type registrationMessageType int
+import (
+	. "github.com/RomainGehrig/Peerster/constants"
+)
 
-const STATUS_CHANNEL_BUFFERSIZE = 8
+type registrationMessageType int
 
 const (
 	Register registrationMessageType = iota
@@ -21,7 +23,7 @@ type Dispatcher struct {
 }
 
 func runPeerStatusDispatcher() *Dispatcher {
-	inputChan := make(chan *LocalizedPeerStatuses, STATUS_CHANNEL_BUFFERSIZE)
+	inputChan := make(chan *LocalizedPeerStatuses, CHANNEL_BUFFERSIZE)
 	// Register chan is unbuffered to prevent sending an unregister message registration
 	// TODO Is that true (?)
 	registerChannel := make(chan registrationMessage)

@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-const BUFFERSIZE_TMP int = 1024
 const ANTIENTROPY_TIME = 1 * time.Second
 const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 
