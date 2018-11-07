@@ -48,6 +48,7 @@ func (g *Gossiper) Run() {
 
 	for {
 		// Eternal wait
+		time.Sleep(5 * time.Minute)
 	}
 }
 
