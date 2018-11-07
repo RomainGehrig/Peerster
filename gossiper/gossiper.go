@@ -12,10 +12,6 @@ import (
 	"time"
 )
 
-// TODO Is is possible to remove this ?
-const BUFFERSIZE int = 1024
-const ANTIENTROPY_TIME = 1 * time.Second
-
 type Gossiper struct {
 	Name       string
 	simpleMode bool
@@ -40,17 +36,15 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 	}
 }
 
+// TODO DELETE
 func (g *Gossiper) WantList() []PeerStatus {
 	return g.rumors.WantList()
 }
-
-// TODO END DELETE
 
 func (g *Gossiper) Run() {
 	// Small improvement: directly set ourself as the best route to get to ourself
 	g.routing.UpdateRoutingTable(g.Name, StringAddress{g.net.GetAddress()})
 
-	go g.AntiEntropy()
 	go g.net.RunNetworkHandler(g)
 	go g.simple.RunSimpleHandler(g.net, g.peers)
 	go g.rumors.RunRumorHandler(g.net, g.peers, g.routing)
@@ -59,21 +53,6 @@ func (g *Gossiper) Run() {
 
 	for {
 		// Eternal wait
-	}
-}
-
-func (g *Gossiper) AntiEntropy() {
-	ticker := time.NewTicker(ANTIENTROPY_TIME)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			neighbor, present := g.peers.PickRandomNeighbor()
-			if present {
-				// TODO Move to rumors
-				g.net.SendGossipPacket(g.rumors.CreateStatusMessage(), neighbor)
-			}
-		}
 	}
 }
 
@@ -104,7 +83,7 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 		case post.Node != nil:
 			g.peers.AddPeer(ResolvePeerAddress(post.Node.Addr))
 		case post.Message != nil:
-			g.DispatchClientMessage(post.Message)
+			g.HandleClientMessage(post.Message)
 			g.peers.PrintPeers()
 		}
 	}
@@ -131,7 +110,7 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 	g.peers.PrintPeers()
 }
 
-func (g *Gossiper) DispatchClientMessage(m *Message) {
+func (g *Gossiper) HandleClientMessage(m *Message) {
 	// TODO Print in case of PrivateMessage ?
 	fmt.Println(m)
 	if g.simpleMode {

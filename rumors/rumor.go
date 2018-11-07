@@ -11,6 +11,7 @@ import (
 )
 
 const BUFFERSIZE_TMP int = 1024
+const ANTIENTROPY_TIME = 1 * time.Second
 const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 
 type RumorHandler struct {
@@ -37,6 +38,21 @@ func (r *RumorHandler) RunRumorHandler(net *NetworkHandler, peers *PeersHandler,
 	r.net = net
 	r.peers = peers
 	r.routing = routing
+	go r.runAntiEntropy()
+}
+
+func (r *RumorHandler) runAntiEntropy() {
+	ticker := time.NewTicker(ANTIENTROPY_TIME)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			neighbor, present := r.peers.PickRandomNeighbor()
+			if present {
+				r.net.SendGossipPacket(r.CreateStatusMessage(), neighbor)
+			}
+		}
+	}
 }
 
 func (r *RumorHandler) CreateClientRumor(text string) *RumorMessage {
