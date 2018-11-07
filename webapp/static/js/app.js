@@ -36,13 +36,27 @@ let vue = new Vue({
         peerID: "",
         origins: [],
         activeTab: RUMOR_TAB,
-        tabs: {[RUMOR_TAB]: []}
+        tabs: {[RUMOR_TAB]: []},
+        files: [],
+        selectedFile: ""
+    },
+    methods: {
+        fileChange: function(name, files) {
+            if (files.length > 0) {
+                this.selectedFile = files[0].name;
+            } else {
+                this.selectedFile = "";
+            }
+        }
     }
 });
 
 function init() {
     const nodeAddr = document.getElementById("nodeValue");
     nodeAddr.addEventListener("keyup", onEnter(clickNewNode));
+
+    // Enable all tooltips
+    $('[data-toggle="tooltip"]').tooltip();
 
     refreshInfo();
     setInterval(refreshInfo, 3000);
@@ -117,6 +131,12 @@ function changeTab(hash) {
     vue.activeTab = stripHash(hash, RUMOR_TAB);
 }
 
+function clickSendFile() {
+    const filename = vue.selectedFile;
+    vue.selectedFile = "";
+    sendFileName(filename);
+}
+
 function clickSendMessage(hash) {
     const destination = stripHash(hash, RUMOR_TAB);
     const elem = document.getElementById(`messageText-${destination}`);
@@ -187,6 +207,7 @@ async function retrievePrivateMessages() {
     });
 }
 
+
 // ID
 async function retrievePeerID() {
     jsonGet("/id").then((obj) => vue.peerID = obj["id"]);
@@ -205,6 +226,13 @@ async function addNode(node) {
     return jsonPost("/node", JSON.stringify({"addr": node}));
 }
 
+// Files
+async function sendFileName(filename) {
+    return jsonPost("/file", JSON.stringify({"filename": filename}));
+}
+
+
+//// Helper methods
 async function jsonQuery(method, endpoint, body) {
     return fetch(endpoint, {
         method: method,
