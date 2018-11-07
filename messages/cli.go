@@ -29,9 +29,22 @@ type Node struct {
 	Addr string
 }
 
+// Files
+type FileIndex struct {
+	Filename string
+}
+
+type FileRequest struct {
+	Filename    string
+	Hash        string
+	Destination string
+}
+
 type PostRequest struct {
-	Node    *Node
-	Message *Message
+	Node        *Node
+	Message     *Message
+	FileIndex   *FileIndex
+	FileRequest *FileRequest
 }
 
 type Request struct {
