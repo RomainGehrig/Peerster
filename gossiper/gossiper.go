@@ -2,6 +2,7 @@ package gossiper
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/files"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
@@ -21,6 +22,7 @@ type Gossiper struct {
 	net        *NetworkHandler
 	simple     *SimpleHandler
 	private    *PrivateHandler
+	files      *FileHandler
 }
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
@@ -33,6 +35,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simple:     NewSimpleHandler(name, gossipAddr),
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
+		files:      NewFileHandler(),
 	}
 }
 
@@ -45,6 +48,7 @@ func (g *Gossiper) Run() {
 	go g.rumors.RunRumorHandler(g.net, g.peers, g.routing)
 	go g.routing.RunRoutingHandler(g.peers, g.net, g.rumors)
 	go g.private.RunPrivateHandler(g.routing, g.net)
+	go g.files.RunFileHandler(g.routing)
 
 	for {
 		// Eternal wait
@@ -81,6 +85,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 		case post.Message != nil:
 			g.HandleClientMessage(post.Message)
 			g.peers.PrintPeers()
+		case post.FileIndex != nil:
+			g.files.RequestFileIndexing(post.FileIndex.Filename)
 		}
 	}
 }
