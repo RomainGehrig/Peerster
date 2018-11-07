@@ -36,11 +36,6 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 	}
 }
 
-// TODO DELETE
-func (g *Gossiper) WantList() []PeerStatus {
-	return g.rumors.WantList()
-}
-
 func (g *Gossiper) Run() {
 	// Small improvement: directly set ourself as the best route to get to ourself
 	g.routing.UpdateRoutingTable(g.Name, StringAddress{g.net.GetAddress()})

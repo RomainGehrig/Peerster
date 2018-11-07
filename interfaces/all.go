@@ -8,7 +8,6 @@ import (
 type GossiperLike interface {
 	DispatchClientRequest(req *Request, sender PeerAddress)
 	DispatchPacket(packet *GossipPacket, sender PeerAddress)
-	WantList() []PeerStatus
 }
 
 type UpdatableRouter interface {
