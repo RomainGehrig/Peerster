@@ -1,5 +1,7 @@
 package messages
 
+import "fmt"
+
 ///// Get Request
 type ResourceType int
 
@@ -44,4 +46,19 @@ type Response struct {
 	PeerID          string
 	Nodes           []string
 	Origins         []string
+}
+
+func (r ResourceType) String() string {
+	return [...]string{"NodeQuery", "MessageQuery", "PeerIDQuery", "OriginsQuery", "PrivateMessageQuery"}[r]
+}
+
+func (g *GetRequest) String() string {
+	return fmt.Sprintf("GetRequest{Type: %s}", g.Type)
+}
+func (p *PostRequest) String() string {
+	return fmt.Sprintf("PostRequest{Node: %s, Message: %s}", p.Node, p.Message)
+}
+
+func (r *Request) String() string {
+	return fmt.Sprintf("Request{Get: %s, Post: %s}", r.Get, r.Post)
 }
