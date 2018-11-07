@@ -14,7 +14,7 @@ type NetworkHandler struct {
 	conn        *net.UDPConn
 	uiAddress   *net.UDPAddr
 	uiConn      *net.UDPConn
-	tmpGossiper interfaces.GossiperLike
+	dispatcher  interfaces.MessageDispatcher
 	sendChannel chan<- *wrappedGossipPacket
 }
 
@@ -53,10 +53,10 @@ func NewNetworkHandler(uiPort string, gossipAddr string) *NetworkHandler {
 	}
 }
 
-func (n *NetworkHandler) RunNetworkHandler(goss interfaces.GossiperLike) {
+func (n *NetworkHandler) RunNetworkHandler(dispatcher interfaces.MessageDispatcher) {
 	peerChan := n.peerMessagesReceiver()
 	clientChan := n.clientMessagesReceiver()
-	n.tmpGossiper = goss
+	n.dispatcher = dispatcher
 
 	sendChan := make(chan *wrappedGossipPacket, CHANNEL_BUFFERSIZE)
 	n.sendChannel = sendChan
@@ -81,13 +81,13 @@ func (n *NetworkHandler) listenForMessages(peerMsgs <-chan *wrappedGossipPacket,
 		case wgp := <-peerMsgs:
 			gp := wgp.gossipMsg
 			sender := wgp.sender
-			n.tmpGossiper.DispatchPacket(gp, sender)
+			n.dispatcher.DispatchPacket(gp, sender)
 			// TODO Print peers was changed
 			// g.peers.PrintPeers()
 		case cliReq := <-clientRequests:
 			req := cliReq.request
 			sender := cliReq.sender
-			n.tmpGossiper.DispatchClientRequest(req, sender)
+			n.dispatcher.DispatchClientRequest(req, sender)
 		case wgp := <-messagesFromModules:
 			gp := wgp.gossipMsg
 			peerAddr := wgp.sender

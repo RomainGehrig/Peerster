@@ -5,7 +5,9 @@ import (
 	. "github.com/RomainGehrig/Peerster/peers"
 )
 
-type GossiperLike interface {
+// Iterface are needed when there are bidirectionnal interactions between two modules
+
+type MessageDispatcher interface {
 	DispatchClientRequest(req *Request, sender PeerAddress)
 	DispatchPacket(packet *GossipPacket, sender PeerAddress)
 }
