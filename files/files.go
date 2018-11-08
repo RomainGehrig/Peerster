@@ -10,7 +10,7 @@ import (
 )
 
 const SHARED_DIR_NAME = "_SharedDir"
-const BYTES_IN_8KB = 8 * 1024 // == 8192 Bytes == 65'536 bits
+const BYTES_IN_8KB = 8 * 1024 // == 8192 Bytes
 
 type SHA256_HASH [sha256.Size]byte
 
@@ -94,7 +94,13 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, error) {
 		}
 		// Hash chunk and append it to metafile
 		hash := sha256.Sum256(chunk[:read])
+		// fmt.Printf("[% x] \n", hash)
 		metafile = append(metafile, hash[:]...)
+	}
+
+	if len(metafile) > BYTES_IN_8KB {
+		fmt.Println("Metafile is bigger than 8KB! Size:", len(metafile), "Bytes")
+		// TODO err ?
 	}
 
 	metafileHash := sha256.Sum256(metafile)
