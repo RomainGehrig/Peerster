@@ -84,9 +84,9 @@
                                   </div>
                                   <div class="ibox-content">
                                       <div class="row">
-                                          <input type="file" id="fileuploadtest" style="display:none" @change="fileChange($event.target.name, $event.target.files)"/>
-                                          <label for="fileuploadtest" style="width:100%; height: 5em" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedDir</code> directory'>
-                                              <a style="height: 5em; border: 2px dashed lightgrey;" class="btn btn-light btn-big btn-block" role="button">
+                                          <input type="file" id="fileupload" style="display:none" @change="fileChange($event.target.name, $event.target.files)"/>
+                                          <label for="fileupload" style="width:100%; height: 4em" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedDir</code> directory'>
+                                              <a style="height: 4em; border: 2px dashed lightgrey;" class="btn btn-light btn-big btn-block" role="button">
                                                   <span v-if="selectedFile === ''">Choose a file <i class="fas fa-file"></i></span>
                                                   <span v-else>File: <strong>{{selectedFile}}</strong></span>
                                               </a>
