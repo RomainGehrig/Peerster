@@ -28,6 +28,22 @@ type RumorMessage struct {
 	Text   string `json:"text"`
 }
 
+/// File transfer
+type DataRequest struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	HashValue   []byte
+}
+
+type DataReply struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	HashValue   []byte
+	Data        []byte
+}
+
 /// Private messages
 type PrivateMessage struct {
 	Origin      string `json:"origin"`
@@ -39,10 +55,12 @@ type PrivateMessage struct {
 
 //// Actual packet sent
 type GossipPacket struct {
-	Simple  *SimpleMessage
-	Rumor   *RumorMessage
-	Status  *StatusPacket
-	Private *PrivateMessage
+	Simple      *SimpleMessage
+	Rumor       *RumorMessage
+	Status      *StatusPacket
+	Private     *PrivateMessage
+	DataRequest *DataRequest
+	DataReply   *DataReply
 }
 
 /// Print functions
@@ -74,8 +92,6 @@ func (p *PeerStatus) String() string {
 	return fmt.Sprintf("peer %s nextID %d", p.Identifier, p.NextID)
 }
 
-// TODO Could add the interface "ToUDPAddr" to convert string to udpaddr
-
 type ToGossipPacket interface {
 	ToGossipPacket() *GossipPacket
 }
@@ -98,4 +114,12 @@ func (sp *StatusPacket) ToGossipPacket() *GossipPacket {
 
 func (p *PrivateMessage) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{Private: p}
+}
+
+func (dataReq *DataRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{DataRequest: dataReq}
+}
+
+func (dataRep *DataReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{DataReply: dataRep}
 }
