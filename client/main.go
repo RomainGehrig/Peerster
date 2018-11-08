@@ -16,7 +16,7 @@ func main() {
 	}
 
 	uiPort := flag.String("UIPort", "8080", "port for the UI client")
-	dest := flag.String("Dest", "", "destination for the private message")
+	dest := flag.String("dest", "", "destination for the private message")
 	file := flag.String("file", "", "file to be indexed by the gossiper")
 	msg := flag.String("msg", "", "message to be sent")
 
