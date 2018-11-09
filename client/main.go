@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"flag"
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/messages"
@@ -17,8 +18,9 @@ func main() {
 
 	uiPort := flag.String("UIPort", "8080", "port for the UI client")
 	dest := flag.String("dest", "", "destination for the private message")
-	file := flag.String("file", "", "file to be indexed by the gossiper")
+	file := flag.String("file", "", "file to be indexed by the gossiper, or filename of the requested file")
 	msg := flag.String("msg", "", "message to be sent")
+	request := flag.String("request", "", "request a chunk or metafile of this hash")
 
 	flag.Parse()
 
@@ -32,7 +34,16 @@ func main() {
 		postReq.Message = &Message{Text: *msg, Dest: *dest}
 	case *msg != "":
 		postReq.Message = &Message{Text: *msg}
-	// TODO FileRequest
+	case *file != "" && *request != "" && *dest != "":
+		hash, err := hex.DecodeString(*request)
+		if err != nil {
+			fmt.Println("Couldn't decode -request argument...")
+			os.Exit(1)
+		}
+		postReq.FileDownload = &FileDownload{
+			Filename:    *file,
+			Hash:        *request,
+			Destination: *dest}
 	case *file != "":
 		postReq.FileIndex = &FileIndex{Filename: *file}
 	default:

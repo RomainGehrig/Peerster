@@ -1,6 +1,9 @@
 package messages
 
-import "fmt"
+import (
+	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
+)
 
 ///// Get Request
 type ResourceType int
@@ -34,17 +37,17 @@ type FileIndex struct {
 	Filename string
 }
 
-type FileRequest struct {
+type FileDownload struct {
 	Filename    string
-	Hash        string
+	Hash        SHA256_HASH
 	Destination string
 }
 
 type PostRequest struct {
-	Node        *Node
-	Message     *Message
-	FileIndex   *FileIndex
-	FileRequest *FileRequest
+	Node         *Node
+	Message      *Message
+	FileIndex    *FileIndex
+	FileDownload *FileDownload
 }
 
 type Request struct {
