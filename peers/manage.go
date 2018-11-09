@@ -2,6 +2,7 @@ package peers
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"

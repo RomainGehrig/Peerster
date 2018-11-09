@@ -4,17 +4,10 @@ import (
 	. "github.com/RomainGehrig/Peerster/constants"
 )
 
-type registrationMessageType int
-
-const (
-	Register registrationMessageType = iota
-	Unregister
-)
-
 type registrationMessage struct {
 	observerChan PeerStatusObserver
 	subject      StatusInterest
-	msgType      registrationMessageType
+	msgType      RegistrationMessageType
 }
 
 type Dispatcher struct {
