@@ -1,12 +1,11 @@
 package private
 
 import (
+	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/routing"
 )
-
-const DEFAULT_HOP_LIMIT = 10
 
 type PrivateHandler struct {
 	// TODO Get name from somewhere else
