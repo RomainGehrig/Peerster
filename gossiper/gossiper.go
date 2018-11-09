@@ -108,6 +108,10 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 			fmt.Println(packet.Private)
 		}
 		g.private.HandlePrivateMessage(packet.Private)
+	case packet.DataReply != nil:
+		g.files.HandleDataReply(packet.DataReply)
+	case packet.DataRequest != nil:
+		g.files.HandleDataRequest(packet.DataRequest)
 	}
 	g.peers.PrintPeers()
 }
