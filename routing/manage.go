@@ -34,7 +34,7 @@ func (r *RoutingHandler) RunRoutingHandler(peers *PeersHandler, net *NetworkHand
 }
 
 func (r *RoutingHandler) runRoutingMessages() {
-	if r.rtimer == 0 {
+	if r.rtimer == 0*time.Second {
 		return
 	}
 
