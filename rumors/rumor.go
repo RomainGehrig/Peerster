@@ -130,7 +130,7 @@ func (r *RumorHandler) HandleRumorMessage(rumor *RumorMessage, sender PeerAddres
 	if diff == 0 {
 		r.acceptRumorMessage(rumor)
 		if sender != nil {
-			// TODO Routing only if
+			// TODO Routing only if rumor is newer
 			r.routing.UpdateRoutingTable(rumor.Origin, sender)
 			r.StartRumorMongeringProcess(rumor, sender)
 		} else {
