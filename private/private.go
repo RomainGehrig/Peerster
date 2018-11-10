@@ -40,12 +40,12 @@ func (p *PrivateHandler) HandlePrivateMessage(pm *PrivateMessage) {
 			p.receivePrivateMessage(pm)
 		}
 
-		newPM, shouldSend := p.preparePrivateMessage(pm)
+		shouldSend := p.preparePrivateMessage(pm)
 		if !shouldSend {
 			return
 		}
 
-		p.routing.SendPacketTo(newPM, pm.Destination)
+		p.routing.SendPacketTo(pm, pm.Destination)
 	}
 }
 
@@ -56,19 +56,16 @@ func (p *PrivateHandler) receivePrivateMessage(pm *PrivateMessage) {
 }
 
 /* Modifies in place the PrivateMessage given as argument */
-func (p *PrivateHandler) preparePrivateMessage(pm *PrivateMessage) (newPM *PrivateMessage, valid bool) {
-	newPM = pm
+func (p *PrivateHandler) preparePrivateMessage(pm *PrivateMessage) bool {
 	// Won't forward
 	if pm.HopLimit <= 1 {
 		pm.HopLimit = 0
-		valid = false
-		return
+		return false
 	}
 
 	// Will forward
 	pm.HopLimit -= 1
-	valid = true
-	return
+	return true
 }
 
 func (p *PrivateHandler) CreatePrivateMessage(text string, dest string) *PrivateMessage {
