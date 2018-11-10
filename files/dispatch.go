@@ -4,13 +4,14 @@ import (
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 type DataReplyObserver (chan<- *DataReply)
 
 type DataReplyDispatcher struct {
 	dataReplyChan chan *DataReply
-	registerChan  chan *registrationMessage
+	registerChan  chan registrationMessage
 }
 
 type registrationMessage struct {
@@ -21,7 +22,7 @@ type registrationMessage struct {
 
 func runDataReplyDispatcher() *DataReplyDispatcher {
 	dataReplyChan := make(chan *DataReply, CHANNEL_BUFFERSIZE)
-	registerChan := make(chan *registrationMessage, CHANNEL_BUFFERSIZE)
+	registerChan := make(chan registrationMessage, CHANNEL_BUFFERSIZE)
 	dispatcher := &DataReplyDispatcher{
 		dataReplyChan: dataReplyChan,
 		registerChan:  registerChan,
@@ -32,20 +33,34 @@ func runDataReplyDispatcher() *DataReplyDispatcher {
 	return dispatcher
 }
 
+func (f *FileHandler) registerChannel(observerChan DataReplyObserver, hash SHA256_HASH) {
+	f.dataDispatcher.registerChan <- registrationMessage{
+		observer: observerChan,
+		subject:  hash,
+		msgType:  Register,
+	}
+}
+
+func (f *FileHandler) unregisterChannel(observerChan DataReplyObserver, hash SHA256_HASH) {
+	f.dataDispatcher.registerChan <- registrationMessage{
+		observer: observerChan,
+		subject:  hash,
+		msgType:  Unregister,
+	}
+}
+
 func (d *DataReplyDispatcher) watchForMessages() {
-
-	// We assume that a chunk has a unique SHA256 (because deterministic function)
-	// AND that a SHA256 uniquely identifies a chunk (non collision). That means
-	// we can only have one channel interested in it.
-	subjects := make(map[SHA256_HASH]DataReplyObserver)
-
 	go func() {
+		// We assume that a chunk has a unique SHA256 (because deterministic function)
+		// AND that a SHA256 uniquely identifies a chunk (non collision). That means
+		// we can only have one channel interested in it.
+		subjects := make(map[SHA256_HASH]DataReplyObserver)
+
 		for {
 			select {
 			case reg := <-d.registerChan:
 				switch reg.msgType {
 				case Register:
-					// TODO checks that the subject does not already exist
 					if prevObs, present := subjects[reg.subject]; present {
 						fmt.Println("Hash", reg.subject, "was already being watched by another observer. Old:", prevObs, ", new: ", reg.observer)
 						close(reg.observer)
@@ -61,7 +76,7 @@ func (d *DataReplyDispatcher) watchForMessages() {
 					}
 				}
 			case dataRep := <-d.dataReplyChan:
-				hash, err := toHash(dataRep.HashValue)
+				hash, err := ToHash(dataRep.HashValue)
 				if err != nil {
 					fmt.Println(err)
 				}

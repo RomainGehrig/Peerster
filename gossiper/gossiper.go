@@ -25,6 +25,8 @@ type Gossiper struct {
 	files      *FileHandler
 }
 
+const DEFAULT_DOWNLOADING_WORKER_COUNT uint = 10
+
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
 	return &Gossiper{
 		simpleMode: simple,
@@ -35,7 +37,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simple:     NewSimpleHandler(name, gossipAddr),
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
-		files:      NewFileHandler(),
+		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT),
 	}
 }
 
@@ -87,6 +89,9 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			g.peers.PrintPeers()
 		case post.FileIndex != nil:
 			g.files.RequestFileIndexing(post.FileIndex.Filename)
+		case post.FileDownload != nil:
+			dl := post.FileDownload
+			g.files.RequestFileDownload(dl.Destination, dl.Hash, dl.Filename)
 		}
 	}
 }
