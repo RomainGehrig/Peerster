@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 	"github.com/dedis/protobuf"
 	"net"
 	"os"
@@ -35,14 +36,15 @@ func main() {
 	case *msg != "":
 		postReq.Message = &Message{Text: *msg}
 	case *file != "" && *request != "" && *dest != "":
-		hash, err := hex.DecodeString(*request)
+		decoded, err := hex.DecodeString(*request)
 		if err != nil {
 			fmt.Println("Couldn't decode -request argument...")
 			os.Exit(1)
 		}
+		hash, err := ToHash(decoded)
 		postReq.FileDownload = &FileDownload{
 			Filename:    *file,
-			Hash:        *request,
+			Hash:        hash,
 			Destination: *dest}
 	case *file != "":
 		postReq.FileIndex = &FileIndex{Filename: *file}
