@@ -146,7 +146,7 @@ func (f *FileHandler) HandleDataRequest(dataReq *DataRequest) {
 			fmt.Printf("Answering to datarequest from %s to %s for [%x], sending packet to %s\n", dataReq.Origin, dataReq.Destination, dataReq.HashValue, dataRep.Destination)
 			f.routing.SendPacketTo(dataRep, dataRep.Destination)
 		} else { // Cannot answer so we forward the request
-			fmt.Printf("Cannot answer to request")
+			fmt.Printf("Cannot answer to request for %x. Forwarding to %s. \n", dataReq.HashValue, dataReq.Destination)
 			if valid := f.prepareDataRequest(dataReq); valid {
 				f.routing.SendPacketTo(dataReq, dataReq.Destination)
 			}
@@ -209,7 +209,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 	go func() {
 		// TODO locks
 		if _, present := f.files[metafileHash]; present {
-			fmt.Println("File was already requested (metafile was present). Hash:", metafileHash)
+			fmt.Printf("File was already requested (metafile was present). Hash: %x \n", metafileHash)
 			return
 		}
 
@@ -227,7 +227,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 			Dest: dest,
 		})
 		if !success {
-			fmt.Println("Downloading metafile", metafileHash, "from", dest, "was unsuccessful")
+			fmt.Println("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, dest)
 			return
 		}
 
@@ -306,7 +306,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 
 			// Drop the packet if it isn't valid
 			if !isDataReplyValid(dataRep) {
-				fmt.Print("Received Hash (", dataRep.HashValue, ") didn't match the hash of the received content:", sha256.Sum256(dataRep.Data), "\n")
+				fmt.Printf("Received Hash (%x) didn't match the hash of the received content: (%x)\n", dataRep.HashValue, sha256.Sum256(dataRep.Data))
 				break
 			}
 
@@ -315,7 +315,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 		case <-ticker.C:
 			timeouts += 1
 			if timeouts == MAX_RETRIES {
-				fmt.Println("Maximum retries reached. Aborting download of", chunkHash)
+				fmt.Printf("Maximum retries reached. Aborting download of %x\n", chunkHash)
 				return nil, false
 			}
 
