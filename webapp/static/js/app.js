@@ -47,6 +47,13 @@ let vue = new Vue({
             } else {
                 this.selectedFile = "";
             }
+        },
+
+        // Copied from https://stackoverflow.com/a/34310051/1439561
+        toHexString: function(byteArray) {
+            return Array.from(byteArray, function(byte) {
+                return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+            }).join('').toUpperCase();
         }
     }
 });
@@ -68,6 +75,7 @@ function refreshInfo() {
     retrieveNodes();
     retrievePeerID();
     retrieveOrigins();
+    retrieveSharedFiles();
 }
 
 function compareStrings(s1, s2) {
@@ -91,6 +99,15 @@ function sortMessages(msgs) {
     });
 
     return msgs;
+}
+
+function sortFiles(files) {
+    if (files === null)
+        return [];
+
+    files.sort((a, b) => compareStrings(a['filename'], b['filename']));
+
+    return files;
 }
 
 function wantToSendMessageTo(hash) {
@@ -135,6 +152,7 @@ function clickSendFile() {
     const filename = vue.selectedFile;
     vue.selectedFile = "";
     sendFileName(filename);
+    refreshInfo();
 }
 
 function clickSendMessage(hash) {
@@ -216,6 +234,11 @@ async function retrievePeerID() {
 // Origins
 async function retrieveOrigins() {
     jsonGet("/origins").then((obj) => vue.origins = sortNodes(obj["origins"]));
+}
+
+// Shared files
+async function retrieveSharedFiles() {
+    jsonGet("/file").then((obj) => vue.files = sortFiles(obj["files"]));
 }
 
 // Nodes

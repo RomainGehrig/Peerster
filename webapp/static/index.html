@@ -79,29 +79,30 @@
                                   </div>
                               </div>
                               <div class="ibox">
-                                  <div class="ibox-title">
+                                  <div class="ibox-title" style="padding-right:15px">
                                       <h1>Files</h1>
-                                  </div>
-                                  <div class="ibox-content">
-                                      <div class="row">
+                                      <div class="pull-right float-right" style="margin-top:8px">
                                           <input type="file" id="fileupload" style="display:none" @change="fileChange($event.target.name, $event.target.files)"/>
-                                          <label for="fileupload" style="width:100%; height: 4em" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedDir</code> directory'>
-                                              <a style="height: 4em; border: 2px dashed lightgrey;" class="btn btn-light btn-big btn-block" role="button">
-                                                  <span v-if="selectedFile === ''">Choose a file <i class="fas fa-file"></i></span>
+                                          <label for="fileupload" style="width:100%" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedDir</code> directory'>
+                                              <a style="border: 2px dashed lightgrey;" class="btn btn-light btn-big btn-block" role="button">
+                                                  <span v-if="selectedFile === ''">Choose a file to share <i class="fas fa-file"></i></span>
                                                   <span v-else>File: <strong>{{selectedFile}}</strong></span>
                                               </a>
                                           </label>
 
-                                          <button v-if="selectedFile !== ''" onclick="clickSendFile()" type="button" class="btn btn-info btn-big btn-block">Share <i class="fas fa-cloud-upload-alt"></i></button>
                                       </div>
-                                      <hr/>
+                                      <button v-if="selectedFile !== ''" onclick="clickSendFile()" type="button" class="btn btn-info btn-big btn-block">Share <i class="fas fa-cloud-upload-alt"></i></button>
+                                      <div class="clearfix"></div>
+                                  </div>
+                                  <div class="ibox-content">
                                       <template v-if="files.length === 0">
                                           <span>No uploaded file</span>
                                       </template>
                                       <template v-else>
                                           <table class="table table-striped table-hover">
                                               <tr v-for="(file, index) in files">
-                                                  <td><strong>{{file.name}} ({{file.hash}})</strong></td>
+                                                  <td><strong>{{file.filename}}</strong><br/>
+                                                      <span style="font-size: 0.59em">{{toHexString(file.hash)}}</span></td>
                                               </tr>
                                           </table>
                                       </template>
