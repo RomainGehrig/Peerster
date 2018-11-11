@@ -236,6 +236,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 		}
 		f.files[metafileHash] = file
 
+		fmt.Println("DOWNLOADING metafile of", localName, "from", dest)
 		// Request for metafile
 		metafile, success := f.chunkDownloader(&DownloadRequest{
 			Hash: metafileHash,
@@ -276,7 +277,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 		file.Size = totalWritten
 
 		outputFile.Close()
-		fmt.Println("Downloaded", localName)
+		fmt.Println("RECONSTRUCTED file", localName)
 
 	}()
 }
