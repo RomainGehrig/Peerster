@@ -30,14 +30,13 @@ const (
 	Failed
 )
 
-// TODO Where is it initialized ?
 type File struct {
 	Name         string
 	Size         int64       // Type given by the Stat().Size()
 	Metafile     []byte      // TODO
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
-	WaitGroup    *sync.WaitGroup
+	waitGroup    *sync.WaitGroup
 }
 
 type DownloadRequest struct {
@@ -245,7 +244,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 			f.downloadChannel <- &DownloadRequest{Hash: hash, Dest: dest}
 		}
 
-		file.WaitGroup.Wait()
+		file.waitGroup.Wait()
 
 		// WaitGroup is done => can save file
 		// TODO Good file flags ?
@@ -354,11 +353,11 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 		file.State = Downloading
 		file.MetafileHash = hash
 		file.Metafile = hashes
-		file.WaitGroup = &sync.WaitGroup{}
+		file.waitGroup = &sync.WaitGroup{}
 
 		totalChunks := len(hashes) / sha256.Size
 
-		file.WaitGroup.Add(totalChunks)
+		file.waitGroup.Add(totalChunks)
 	}
 
 	// Add all hashes to the download list
@@ -417,7 +416,7 @@ func (f *FileHandler) runDownloadGroup(workers uint) chan<- *DownloadRequest {
 /* We assume the chunk was validated already */
 func (f *FileHandler) acceptDataChunk(hash SHA256_HASH, data []byte) {
 	// TODO Locks
-	// file.WaitGroup.Done()
+	// file.waitGroup.Done()
 	// Add chunk to downloaded
 
 	// TODO presence checking should be unnecessary
@@ -430,7 +429,8 @@ func (f *FileHandler) acceptDataChunk(hash SHA256_HASH, data []byte) {
 
 	fmt.Println("Chunk", chunk.Number, "was downloaded")
 
-	chunk.File.WaitGroup.Done()
+	// TODO Timeout on waitgroup
+	chunk.File.waitGroup.Done()
 }
 
 func (f *FileHandler) RequestFileIndexing(filename string) {
