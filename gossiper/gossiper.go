@@ -86,6 +86,7 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 		switch {
 		case post.Node != nil:
 			g.peers.AddPeer(ResolvePeerAddress(post.Node.Addr))
+			g.peers.PrintPeers() // TODO Do we print the new peers here ?
 		case post.Message != nil:
 			g.HandleClientMessage(post.Message)
 			g.peers.PrintPeers()

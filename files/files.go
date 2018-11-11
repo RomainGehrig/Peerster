@@ -23,6 +23,7 @@ const MAX_RETRIES = 5
 
 type FileState int
 
+// TODO Where are they set ?
 const (
 	Shared FileState = iota
 	Downloaded
@@ -309,7 +310,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 			// Channel was closed by dispatcher
 			if !ok {
 				// TODO
-				panic("Downloader was finished by dispatcher")
+				// panic("Downloader was finished by dispatcher")
 				return nil, false
 			}
 

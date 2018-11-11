@@ -27,14 +27,14 @@ func (r *RumorHandler) StartRumormongering(rumor *RumorMessage, peerAddr PeerAdd
 		timer := time.NewTimer(STATUS_MESSAGE_TIMEOUT)
 
 		// Register our channel to receive updates
-		r.peers.RegisterChannel(observerChan, StatusInterest{
+		r.RegisterChannel(observerChan, StatusInterest{
 			Sender:     peerAddr.String(),
 			Identifier: rumor.Origin})
 
 		// Function to call to unregister our channel
 		unregister := func() {
 			timer.Stop()
-			r.peers.UnregisterChannel(observerChan)
+			r.UnregisterChannel(observerChan)
 		}
 
 		for {

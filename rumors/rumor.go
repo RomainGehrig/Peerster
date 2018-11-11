@@ -2,6 +2,7 @@ package rumors
 
 import (
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	"github.com/RomainGehrig/Peerster/interfaces"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
@@ -20,6 +21,7 @@ type RumorHandler struct {
 	net          *NetworkHandler
 	peers        *PeersHandler
 	routing      interfaces.UpdatableRouter
+	dispatcher   *Dispatcher
 	// TODO get
 	name string
 }
@@ -37,6 +39,7 @@ func (r *RumorHandler) RunRumorHandler(net *NetworkHandler, peers *PeersHandler,
 	r.net = net
 	r.peers = peers
 	r.routing = routing
+	r.dispatcher = runPeerStatusDispatcher()
 	go r.runAntiEntropy()
 }
 
@@ -97,6 +100,25 @@ func (r *RumorHandler) SelfDiffRumorID(rumor *RumorMessage) int {
 	}
 
 	return int(peerStatus.NextID) - int(rumor.ID)
+}
+
+func (r *RumorHandler) InformStatusReception(lps *LocalizedPeerStatuses) {
+	r.dispatcher.statusChannel <- lps
+}
+
+func (r *RumorHandler) RegisterChannel(observerChan PeerStatusObserver, interest StatusInterest) {
+	r.dispatcher.registerChannel <- registrationMessage{
+		observerChan: observerChan,
+		subject:      interest,
+		msgType:      Register,
+	}
+}
+
+func (r *RumorHandler) UnregisterChannel(observerChan PeerStatusObserver) {
+	r.dispatcher.registerChannel <- registrationMessage{
+		observerChan: observerChan,
+		msgType:      Unregister,
+	}
 }
 
 func (r *RumorHandler) CreateStatusMessage() *StatusPacket {
@@ -165,7 +187,7 @@ func (r *RumorHandler) HandleStatusMessage(status *StatusPacket, sender PeerAddr
 		var rumor RumorMessage = r.rumorMsgs[rumorsToSend[0]]
 		r.rumorLock.RUnlock()
 
-		r.peers.InformStatusReception(&LocalizedPeerStatuses{Sender: sender, Statuses: status.Want})
+		r.InformStatusReception(&LocalizedPeerStatuses{Sender: sender, Statuses: status.Want})
 
 		r.StartRumormongering(&rumor, sender)
 	} else if len(rumorsToAsk) > 0 {

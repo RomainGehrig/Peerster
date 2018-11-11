@@ -2,7 +2,6 @@ package peers
 
 import (
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
@@ -14,21 +13,6 @@ type PeersHandler struct {
 	knownPeers       []PeerAddress
 	peerWantList     map[string](map[string]PeerStatus)
 	peerWantListLock *sync.RWMutex
-	dispatcher       *Dispatcher
-}
-
-type PeerStatusObserver (chan<- PeerStatus)
-
-// TODO Better name
-type StatusInterest struct {
-	Sender     string
-	Identifier string
-}
-
-// TODO better name
-type LocalizedPeerStatuses struct {
-	Sender   PeerAddress
-	Statuses []PeerStatus
 }
 
 func NewPeersHandler(peers []string) *PeersHandler {
@@ -36,7 +20,6 @@ func NewPeersHandler(peers []string) *PeersHandler {
 		knownPeers:       AsStringAddresses(peers...),
 		peerWantList:     make(map[string](map[string]PeerStatus)),
 		peerWantListLock: &sync.RWMutex{},
-		dispatcher:       runPeerStatusDispatcher(),
 	}
 }
 
@@ -89,23 +72,4 @@ func (p *PeersHandler) PickRandomNeighbor(excludedAddresses ...PeerAddress) (Pee
 
 	// Return a random peer
 	return StringAddress{notExcluded[rand.Intn(len(notExcluded))]}, true
-}
-
-func (p *PeersHandler) InformStatusReception(lps *LocalizedPeerStatuses) {
-	p.dispatcher.statusChannel <- lps
-}
-
-func (p *PeersHandler) RegisterChannel(observerChan PeerStatusObserver, interest StatusInterest) {
-	p.dispatcher.registerChannel <- registrationMessage{
-		observerChan: observerChan,
-		subject:      interest,
-		msgType:      Register,
-	}
-}
-
-func (p *PeersHandler) UnregisterChannel(observerChan PeerStatusObserver) {
-	p.dispatcher.registerChannel <- registrationMessage{
-		observerChan: observerChan,
-		msgType:      Unregister,
-	}
 }

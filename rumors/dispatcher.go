@@ -1,8 +1,24 @@
-package peers
+package rumors
 
 import (
 	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/peers"
 )
+
+type PeerStatusObserver (chan<- PeerStatus)
+
+// TODO Better name
+type StatusInterest struct {
+	Sender     string
+	Identifier string
+}
+
+// TODO better name
+type LocalizedPeerStatuses struct {
+	Sender   PeerAddress
+	Statuses []PeerStatus
+}
 
 type registrationMessage struct {
 	observerChan PeerStatusObserver
