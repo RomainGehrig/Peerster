@@ -87,6 +87,11 @@ func postFileName(filename string) {
 	sendQuery(toSend).Close()
 }
 
+func postFileDownloadRequest(destination string, hash SHA256_HASH, filename string) {
+	toSend := &Request{Post: &PostRequest{FileDownload: &FileDownload{destination, FileInfo{Hash: hash, Filename: filename}}}}
+	sendQuery(toSend).Close()
+}
+
 func addNewNode(addr string) {
 	toSend := &Request{Post: &PostRequest{Node: &Node{Addr: addr}}}
 	sendQuery(toSend).Close()

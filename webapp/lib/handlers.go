@@ -1,8 +1,10 @@
 package lib
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 	"net/http"
 )
 
@@ -113,5 +115,27 @@ func SharedFileHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&filename)
 		postFileName(filename.Filename)
 		ackPOST(true, w)
+	}
+}
+
+func FileRequestHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		var fileinfo struct {
+			Filename    string `json:"filename"`
+			Hash        string `json:"hash"`
+			Destination string `json:"destination"`
+		}
+
+		json.NewDecoder(r.Body).Decode(&fileinfo)
+
+		decoded, err := hex.DecodeString(fileinfo.Hash)
+		if err != nil {
+			ackPOST(false, w)
+		} else if hash, err := ToHash(decoded); err == nil {
+			postFileDownloadRequest(fileinfo.Destination, hash, fileinfo.Filename)
+			ackPOST(true, w)
+		} else {
+			ackPOST(false, w)
+		}
 	}
 }

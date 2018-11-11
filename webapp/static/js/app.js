@@ -32,9 +32,12 @@ Vue.component('file-request', {
                   Download file from {{destination}}
                </div>
                <div :id="'file-download-popover-content-' + destination" class="d-none">
-                  <input type="text" :id="'file-download-hash-' + destination"></input>
-                  <input type="text" :id="'file-download-filename-' + destination"></input>
-                  <a :href="'#' + destination" onclick="clickSendFileRequest(this.hash)" class="btn btn-info btn-sm">Send request</a>
+                  <form onsubmit="clickSubmitFileRequest(this); return false;">
+                    <input id="file-download-destination" type="hidden" :value="destination"/>
+                    <input id="file-download-hash" class="form-control" type="text" placeholder="Enter file hash"></input>
+                    <input id="file-download-filename" class="form-control" type="text" placeholder="Enter filename"></input>
+                    <input type="submit" class="btn btn-info btn-block btn-big" value="Send request"/>
+               </form>
                </div></a>`,
     props: ["destination"],
     mounted: function() {
@@ -174,25 +177,24 @@ function changeTab(hash) {
     vue.activeTab = stripHash(hash, RUMOR_TAB);
 }
 
-function clickSendFileRequest(hash) {
-    resetElements = function() {
-        fileHashElem.value = "";
-        fileNameElem.value = "";
-    };
+function clickSubmitFileRequest(form) {
 
-    const destination = stripHash(hash, "");
-    const fileHashElem = document.getElementById(`file-download-hash-${destination}`);
-    const fileNameElem = document.getElementById(`file-download-filename-${destination}`);
-
+    console.log(form);
+    const fileDestElem = form["file-download-destination"];
+    const fileHashElem = form["file-download-hash"];
+    const fileNameElem = form["file-download-filename"];
+    const destination = fileDestElem.value;
     const fileHash = fileHashElem.value;
     const fileName = fileNameElem.value;
-
-    resetElements();
 
     if (fileHash == "" || fileName == "") {
         return;
     }
 
+    // TODO Show a message
+
+    // TODO Do this without a shotgun
+    $(".popover").popover("hide");
     sendFileRequest(destination, fileHash, fileName);
 }
 
