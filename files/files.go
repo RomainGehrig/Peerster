@@ -130,7 +130,7 @@ func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 		}()
 	} else {
 		if valid := f.prepareDataReply(dataRep); valid {
-			f.routing.SendPacketTo(dataRep, dataRep.Destination)
+			f.routing.SendPacketTowards(dataRep, dataRep.Destination)
 		}
 	}
 }
@@ -144,14 +144,14 @@ func (f *FileHandler) HandleDataRequest(dataReq *DataRequest) {
 		// when we just happen to have the chunk already ?
 		if dataRep, valid := f.answerTo(dataReq); valid {
 			fmt.Printf("Answering to datarequest from %s to %s for [%x], sending packet to %s\n", dataReq.Origin, dataReq.Destination, dataReq.HashValue, dataRep.Destination)
-			f.routing.SendPacketTo(dataRep, dataRep.Destination)
+			f.routing.SendPacketTowards(dataRep, dataRep.Destination)
 		} else if dataReq.Destination == f.name {
 			// The destination is us but we can't reply because we don't have the data
 			fmt.Printf("We don't have data for %x. Dropping the request.\n", dataReq.HashValue)
 		} else { // Cannot answer so we forward the request
 			fmt.Printf("Cannot answer to request for %x. Forwarding to %s. \n", dataReq.HashValue, dataReq.Destination)
 			if valid := f.prepareDataRequest(dataReq); valid {
-				f.routing.SendPacketTo(dataReq, dataReq.Destination)
+				f.routing.SendPacketTowards(dataReq, dataReq.Destination)
 			}
 		}
 	}()
@@ -285,7 +285,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 		HashValue:   chunkHash[:],
 	}
 
-	f.routing.SendPacketTo(dataRequest, dest)
+	f.routing.SendPacketTowards(dataRequest, dest)
 	ticker := time.NewTicker(NO_ANSWER_TIMEOUT)
 	timeouts := 0
 
@@ -323,7 +323,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 			}
 
 			// Retry if we timeout
-			f.routing.SendPacketTo(dataRequest, dest)
+			f.routing.SendPacketTowards(dataRequest, dest)
 		}
 	}
 }

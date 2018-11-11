@@ -83,7 +83,7 @@ func (r *RoutingHandler) sendRoutingMessage(peers ...PeerAddress) {
 	}
 }
 
-func (r *RoutingHandler) SendPacketTo(gp ToGossipPacket, dest string) bool {
+func (r *RoutingHandler) SendPacketTowards(gp ToGossipPacket, dest string) bool {
 	nextHop, valid := r.findRouteTo(dest)
 	if !valid {
 		return false

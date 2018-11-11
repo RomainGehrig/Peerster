@@ -45,7 +45,7 @@ func (p *PrivateHandler) HandlePrivateMessage(pm *PrivateMessage) {
 			return
 		}
 
-		p.routing.SendPacketTo(pm, pm.Destination)
+		p.routing.SendPacketTowards(pm, pm.Destination)
 	}
 }
 
