@@ -26,6 +26,36 @@ Vue.component('tab-content', {
     }
 });
 
+Vue.component('file-request', {
+    template: `<a :id="'file-download-popover-'+destination" :href="'#'+destination" data-toggle="popover" class="btn btn-outline-info btn-sm"><i class="fas fa-file-download"></i>
+               <div :id="'file-download-popover-head-' + destination" class="d-none">
+                  Download file from {{destination}}
+               </div>
+               <div :id="'file-download-popover-content-' + destination" class="d-none">
+                  Put the form here
+               </div></a>
+               `,
+    props: ["destination"],
+    methods: {
+        sendRequest: function(hash, filename) {
+            sendFileRequest(this.destination, hash, filename);
+        }
+    },
+    mounted: function() {
+        const component = this;
+        // Enable popover
+        $('#file-download-popover-' + this.destination).popover({
+            html : true,
+            title: function() {
+                return $("#file-download-popover-head-" + component.destination).html();
+            },
+            content: function() {
+                return $("#file-download-popover-content-" + component.destination).html();
+            }
+        });
+    }
+});
+
 const RUMOR_TAB = "_rumors";
 
 let vue = new Vue({
