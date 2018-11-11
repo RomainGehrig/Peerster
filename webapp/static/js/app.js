@@ -32,15 +32,11 @@ Vue.component('file-request', {
                   Download file from {{destination}}
                </div>
                <div :id="'file-download-popover-content-' + destination" class="d-none">
-                  Put the form here
-               </div></a>
-               `,
+                  <input type="text" :id="'file-download-hash-' + destination"></input>
+                  <input type="text" :id="'file-download-filename-' + destination"></input>
+                  <a :href="'#' + destination" onclick="clickSendFileRequest(this.hash)" class="btn btn-info btn-sm">Send request</a>
+               </div></a>`,
     props: ["destination"],
-    methods: {
-        sendRequest: function(hash, filename) {
-            sendFileRequest(this.destination, hash, filename);
-        }
-    },
     mounted: function() {
         const component = this;
         // Enable popover
@@ -178,6 +174,28 @@ function changeTab(hash) {
     vue.activeTab = stripHash(hash, RUMOR_TAB);
 }
 
+function clickSendFileRequest(hash) {
+    resetElements = function() {
+        fileHashElem.value = "";
+        fileNameElem.value = "";
+    };
+
+    const destination = stripHash(hash, "");
+    const fileHashElem = document.getElementById(`file-download-hash-${destination}`);
+    const fileNameElem = document.getElementById(`file-download-filename-${destination}`);
+
+    const fileHash = fileHashElem.value;
+    const fileName = fileNameElem.value;
+
+    resetElements();
+
+    if (fileHash == "" || fileName == "") {
+        return;
+    }
+
+    sendFileRequest(destination, fileHash, fileName);
+}
+
 function clickSendFile() {
     const filename = vue.selectedFile;
     vue.selectedFile = "";
@@ -269,6 +287,10 @@ async function retrieveDestinations() {
 // Shared files
 async function retrieveSharedFiles() {
     jsonGet("/sharedFiles").then((obj) => vue.files = sortFiles(obj["files"]));
+}
+
+async function sendFileRequest(dest, hash, filename) {
+    jsonPost("/files", JSON.stringify({"destination": dest, "hash": hash, "filename": filename}));
 }
 
 // Nodes
