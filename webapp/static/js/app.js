@@ -268,7 +268,7 @@ async function retrieveDestinations() {
 
 // Shared files
 async function retrieveSharedFiles() {
-    jsonGet("/file").then((obj) => vue.files = sortFiles(obj["files"]));
+    jsonGet("/sharedFiles").then((obj) => vue.files = sortFiles(obj["files"]));
 }
 
 // Nodes
@@ -281,7 +281,7 @@ async function addNode(node) {
 
 // Files
 async function sendFileName(filename) {
-    return jsonPost("/file", JSON.stringify({"filename": filename}));
+    return jsonPost("/sharedFiles", JSON.stringify({"filename": filename}));
 }
 
 
