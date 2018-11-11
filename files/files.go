@@ -230,7 +230,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 			Dest: dest,
 		})
 		if !success {
-			fmt.Println("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, dest)
+			fmt.Printf("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, dest)
 			return
 		}
 
