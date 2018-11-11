@@ -77,6 +77,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.Origins = g.routing.KnownOrigins()
 		case PrivateMessageQuery:
 			resp.PrivateMessages = g.private.GetPrivateMessages()
+		case SharedFilesQuery:
+			resp.Files = g.files.SharedFiles()
 		}
 		g.net.SendClientResponse(&resp, sender)
 	case req.Post != nil:

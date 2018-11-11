@@ -32,10 +32,10 @@ const (
 
 type File struct {
 	Name         string
-	Size         int64       // Type given by the Stat().Size()
-	metafile     []byte      // TODO
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
+	Size         int64  // Type given by the Stat().Size()
+	metafile     []byte // TODO
 	waitGroup    *sync.WaitGroup
 }
 
@@ -110,6 +110,17 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 		downloadWorkers: downloadWorkers,
 		name:            name,
 	}
+}
+
+func (f *FileHandler) SharedFiles() []FileInfo {
+	// TODO LOCKS
+	files := make([]FileInfo, 0)
+	for _, file := range f.files {
+		if file.State == Shared {
+			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash})
+		}
+	}
+	return files
 }
 
 func (f *FileHandler) RunFileHandler(routing *RoutingHandler) {

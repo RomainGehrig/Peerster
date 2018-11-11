@@ -3,7 +3,6 @@ package messages
 import (
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/files"
 )
 
 ///// Get Request
@@ -35,13 +34,18 @@ type Node struct {
 }
 
 // Files
+type FileInfo struct {
+	Filename string      `json:"filename"`
+	Hash     SHA256_HASH `json:"hash"`
+}
+
 type FileIndex struct {
 	Filename string
 }
 
 type FileDownload struct {
 	Destination string
-	File
+	FileInfo
 }
 
 type PostRequest struct {
@@ -63,7 +67,7 @@ type Response struct {
 	PeerID          string
 	Nodes           []string
 	Origins         []string
-	Files           []File
+	Files           []FileInfo
 }
 
 func (m *Message) String() string {
