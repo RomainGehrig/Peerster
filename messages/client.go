@@ -44,7 +44,7 @@ type FileIndex struct {
 }
 
 type FileDownload struct {
-	Destination string
+	Destination string `json:"destination"`
 	FileInfo
 }
 

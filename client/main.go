@@ -43,9 +43,8 @@ func main() {
 		}
 		hash, err := ToHash(decoded)
 		postReq.FileDownload = &FileDownload{
-			Filename:    *file,
-			Hash:        hash,
-			Destination: *dest}
+			*dest,
+			FileInfo{Hash: hash, Filename: *file}}
 	case *file != "":
 		postReq.FileIndex = &FileIndex{Filename: *file}
 	default:
