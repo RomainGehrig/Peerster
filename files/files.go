@@ -221,10 +221,11 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 	// Should not block
 	go func() {
 		// TODO locks
-		if _, present := f.files[metafileHash]; present {
-			fmt.Printf("File was already requested (metafile was present). Hash: %x \n", metafileHash)
-			return
-		}
+		// TODO Reenable check ?
+		// if metafile, present := f.files[metafileHash]; present && metafile.State == Shared {
+		// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
+		// 	return
+		// }
 
 		// Create an entry for this file
 		file := &File{
