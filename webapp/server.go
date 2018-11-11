@@ -15,7 +15,7 @@ func main() {
 	r.HandleFunc("/message", MessageHandler).Methods("GET", "POST")
 	r.HandleFunc("/node", NodeHandler).Methods("GET", "POST")
 	r.HandleFunc("/id", IdHandler).Methods("GET")
-	r.HandleFunc("/origins", OriginsHandler).Methods("GET")
+	r.HandleFunc("/destinations", DestinationsHandler).Methods("GET")
 	r.HandleFunc("/pmessage", PrivateMessageHandler).Methods("GET", "POST")
 	r.HandleFunc("/file", FileHandler).Methods("GET", "POST")
 

@@ -34,7 +34,7 @@ let vue = new Vue({
         // messages: [],
         nodes: [],
         peerID: "",
-        origins: [],
+        destinations: [],
         activeTab: RUMOR_TAB,
         tabs: {[RUMOR_TAB]: []},
         files: [],
@@ -74,7 +74,7 @@ function refreshInfo() {
     retrievePrivateMessages();
     retrieveNodes();
     retrievePeerID();
-    retrieveOrigins();
+    retrieveDestinations();
     retrieveSharedFiles();
 }
 
@@ -231,9 +231,9 @@ async function retrievePeerID() {
     jsonGet("/id").then((obj) => vue.peerID = obj["id"]);
 }
 
-// Origins
-async function retrieveOrigins() {
-    jsonGet("/origins").then((obj) => vue.origins = sortNodes(obj["origins"]));
+// Destinations
+async function retrieveDestinations() {
+    jsonGet("/destinations").then((obj) => vue.destinations = sortNodes(obj["destinations"]));
 }
 
 // Shared files

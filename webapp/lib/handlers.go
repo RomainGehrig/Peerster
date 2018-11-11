@@ -39,12 +39,12 @@ func IdHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(peerID)
 }
 
-func OriginsHandler(w http.ResponseWriter, r *http.Request) {
-	var origins struct {
-		Origins []string `json:"origins"`
+func DestinationsHandler(w http.ResponseWriter, r *http.Request) {
+	var destinations struct {
+		Destinations []string `json:"destinations"`
 	}
-	origins.Origins = getOrigins()
-	json.NewEncoder(w).Encode(origins)
+	destinations.Destinations = getDestinations()
+	json.NewEncoder(w).Encode(destinations)
 }
 
 func MessageHandler(w http.ResponseWriter, r *http.Request) {

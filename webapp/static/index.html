@@ -64,20 +64,22 @@
                                       </div>
                                   </div>
                               </div>
+                              <!-- Destinations and private messages -->
                               <div class="ibox">
                                   <div class="ibox-title">
-                                      <h1>Origins</h1>
+                                      <h1>Destinations</h1>
                                   </div>
                                   <div class="ibox-content">
                                       <table class="table table-striped table-hover">
-                                          <tr v-for="(origin, index) in origins">
-                                              <td><strong>{{origin}}</strong>
-                                                  <div class="float-right"><a :href="'#'+origin" class="btn btn-outline-info btn-sm" onclick="wantToSendMessageTo(this.hash)"><i class="far fa-paper-plane"></i></a></div>
+                                          <tr v-for="(destination, index) in destinations">
+                                              <td><strong>{{destination}}</strong>
+                                                  <div class="float-right"><a :href="'#'+destination" class="btn btn-outline-info btn-sm" onclick="wantToSendMessageTo(this.hash)"><i class="far fa-paper-plane"></i></a></div>
                                               </td>
                                           </tr>
                                       </table>
                                   </div>
                               </div>
+                              <!-- File upload  -->
                               <div class="ibox">
                                   <div class="ibox-title" style="padding-right:15px">
                                       <h1>Files</h1>

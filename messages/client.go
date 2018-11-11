@@ -12,7 +12,7 @@ const (
 	NodeQuery ResourceType = iota
 	MessageQuery
 	PeerIDQuery
-	OriginsQuery
+	DestinationsQuery
 	PrivateMessageQuery
 	SharedFilesQuery
 )
@@ -66,7 +66,7 @@ type Response struct {
 	PrivateMessages []PrivateMessage
 	PeerID          string
 	Nodes           []string
-	Origins         []string
+	Destinations    []string
 	Files           []FileInfo
 }
 

@@ -73,8 +73,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.Rumors = rumors
 		case PeerIDQuery:
 			resp.PeerID = g.Name
-		case OriginsQuery:
-			resp.Origins = g.routing.KnownOrigins()
+		case DestinationsQuery:
+			resp.Destinations = g.routing.KnownDestinations()
 		case PrivateMessageQuery:
 			resp.PrivateMessages = g.private.GetPrivateMessages()
 		case SharedFilesQuery:

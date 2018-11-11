@@ -42,9 +42,9 @@ func reqToResp(req *Request) *Response {
 	return waitForResponse(conn)
 }
 
-func getOrigins() []string {
-	toSend := &Request{Get: &GetRequest{Type: OriginsQuery}}
-	return reqToResp(toSend).Origins
+func getDestinations() []string {
+	toSend := &Request{Get: &GetRequest{Type: DestinationsQuery}}
+	return reqToResp(toSend).Destinations
 }
 
 func getPrivateMessages() []PrivateMessage {

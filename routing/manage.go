@@ -55,7 +55,7 @@ func (r *RoutingHandler) runRoutingMessages() {
 	}
 }
 
-func (r *RoutingHandler) KnownOrigins() []string {
+func (r *RoutingHandler) KnownDestinations() []string {
 	// TODO Locking
 	origins := make([]string, 0)
 	for origin, _ := range r.routingTable {
