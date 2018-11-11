@@ -64,10 +64,6 @@ type GossipPacket struct {
 }
 
 /// Print functions
-func (m *Message) String() string {
-	return fmt.Sprintf("CLIENT MESSAGE %s", m.Text)
-}
-
 func (simple *SimpleMessage) String() string {
 	return fmt.Sprintf("SIMPLE MESSAGE origin %s from %s contents %s", simple.OriginalName, simple.RelayPeerAddr, simple.Contents)
 }

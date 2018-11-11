@@ -3,6 +3,7 @@ package messages
 import (
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/files"
 )
 
 ///// Get Request
@@ -14,6 +15,7 @@ const (
 	PeerIDQuery
 	OriginsQuery
 	PrivateMessageQuery
+	SharedFilesQuery
 )
 
 type GetRequest struct {
@@ -38,9 +40,8 @@ type FileIndex struct {
 }
 
 type FileDownload struct {
-	Filename    string
-	Hash        SHA256_HASH
 	Destination string
+	File
 }
 
 type PostRequest struct {
@@ -62,6 +63,11 @@ type Response struct {
 	PeerID          string
 	Nodes           []string
 	Origins         []string
+	Files           []File
+}
+
+func (m *Message) String() string {
+	return fmt.Sprintf("CLIENT MESSAGE %s", m.Text)
 }
 
 func (r ResourceType) String() string {
