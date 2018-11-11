@@ -33,7 +33,7 @@ const (
 type File struct {
 	Name         string
 	Size         int64       // Type given by the Stat().Size()
-	Metafile     []byte      // TODO
+	metafile     []byte      // TODO
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
 	waitGroup    *sync.WaitGroup
@@ -172,7 +172,7 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 	// TODO Locks
 	// Reply can either be a metafile or a chunk
 	if metafile, present := f.files[hash]; present {
-		reply.Data = metafile.Metafile
+		reply.Data = metafile.metafile
 		return reply, true
 	}
 
@@ -352,7 +352,7 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	} else {
 		file.State = Downloading
 		file.MetafileHash = hash
-		file.Metafile = hashes
+		file.metafile = hashes
 		file.waitGroup = &sync.WaitGroup{}
 
 		totalChunks := len(hashes) / sha256.Size
@@ -508,7 +508,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 
 	metafileHash := sha256.Sum256(metafile)
 
-	indexedFile.Metafile = metafile
+	indexedFile.metafile = metafile
 	indexedFile.MetafileHash = metafileHash
 
 	return indexedFile, fileChunks, nil
