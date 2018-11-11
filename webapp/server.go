@@ -17,7 +17,7 @@ func main() {
 	r.HandleFunc("/id", IdHandler).Methods("GET")
 	r.HandleFunc("/origins", OriginsHandler).Methods("GET")
 	r.HandleFunc("/pmessage", PrivateMessageHandler).Methods("GET", "POST")
-	r.HandleFunc("/file", FileHandler).Methods("POST")
+	r.HandleFunc("/file", FileHandler).Methods("GET", "POST")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 

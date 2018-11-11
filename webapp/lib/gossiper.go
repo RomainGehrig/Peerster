@@ -67,6 +67,11 @@ func getPeerID() string {
 	return reqToResp(toSend).PeerID
 }
 
+func getSharedFiles() []FileInfo {
+	toSend := &Request{Get: &GetRequest{Type: SharedFilesQuery}}
+	return reqToResp(toSend).Files
+}
+
 func postNewMessage(text string) {
 	toSend := &Request{Post: &PostRequest{Message: &Message{Text: text}}}
 	sendQuery(toSend).Close()

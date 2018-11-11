@@ -100,7 +100,13 @@ func PrivateMessageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func FileHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
+	if r.Method == "GET" {
+		var files struct {
+			Files []FileInfo `json:"files"`
+		}
+		files.Files = getSharedFiles()
+		json.NewEncoder(w).Encode(files)
+	} else if r.Method == "POST" {
 		var filename struct {
 			Filename string `json:"filename"`
 		}
