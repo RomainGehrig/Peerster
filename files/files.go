@@ -315,10 +315,8 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 				return nil, false
 			}
 
-			// TODO debug condition
-			if hash, _ := ToHash(dataRep.HashValue); hash != chunkHash {
-				panic(errors.New(fmt.Sprint("Channel received a hash it didn't want! Hash received: ", hash, " hash wanted: ", chunkHash)))
-			}
+			chunkInfo, _ := f.chunks[req.Hash]
+			fmt.Printf("DOWNLOADING %s chunk %d from %s\n", chunkInfo.File.Name, chunkInfo.Number, req.Dest)
 
 			// Drop the packet if it isn't valid
 			if !isDataReplyValid(dataRep) {
