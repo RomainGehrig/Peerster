@@ -9,6 +9,7 @@ import (
 	"github.com/dedis/protobuf"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -22,8 +23,18 @@ func main() {
 	file := flag.String("file", "", "file to be indexed by the gossiper, or filename of the requested file")
 	msg := flag.String("msg", "", "message to be sent")
 	request := flag.String("request", "", "request a chunk or metafile of this hash")
+	keywordsList := flag.String("keywords", "", "search for files containing one of the supplied keywords, separated with commas. '*' can be used to represent 0 or more characters")
+	budget := flag.Uint64("budget", 0, "budget allocated to the search query (0 means an exponential search)")
 
 	flag.Parse()
+
+	// Parse keywords
+	var keywords []string
+	if *keywordsList != "" {
+		keywords = strings.Split(*keywordsList, ",")
+	} else {
+		keywords = nil
+	}
 
 	address := fmt.Sprintf(":%s", *uiPort)
 
@@ -45,6 +56,11 @@ func main() {
 		postReq.FileDownload = &FileDownload{
 			*dest,
 			FileInfo{Hash: hash, Filename: *file}}
+	// TODO File download without target
+	case *file != "" && *request != "":
+		panic("Not implemented")
+	case keywords != nil:
+		postReq.FileSearch = &FileSearch{Budget: *budget, Keywords: keywords}
 	case *file != "":
 		postReq.FileIndex = &FileIndex{Filename: *file}
 	default:

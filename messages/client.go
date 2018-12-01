@@ -15,6 +15,7 @@ const (
 	DestinationsQuery
 	PrivateMessageQuery
 	SharedFilesQuery
+	SearchResultsQuery
 )
 
 type GetRequest struct {
@@ -48,11 +49,17 @@ type FileDownload struct {
 	FileInfo
 }
 
+type FileSearch struct {
+	Budget   uint64
+	Keywords []string
+}
+
 type PostRequest struct {
 	Node         *Node
 	Message      *Message
 	FileIndex    *FileIndex
 	FileDownload *FileDownload
+	FileSearch   *FileSearch
 }
 
 type Request struct {
@@ -75,7 +82,7 @@ func (m *Message) String() string {
 }
 
 func (r ResourceType) String() string {
-	return [...]string{"NodeQuery", "MessageQuery", "PeerIDQuery", "OriginsQuery", "PrivateMessageQuery"}[r]
+	return [...]string{"NodeQuery", "MessageQuery", "PeerIDQuery", "OriginsQuery", "PrivateMessageQuery", "SharedFilesQuery", "SearchResultQuery"}[r]
 }
 
 func (g *GetRequest) String() string {
