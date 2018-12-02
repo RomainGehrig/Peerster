@@ -15,13 +15,32 @@ const FULL_MATCHES_NEEDED_TO_STOP_SEARCH = 2
 func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
 	// TODO Should not block !
 	go func() {
-		// TODO
+		// Got a reply: it's either for us (TODO) or needs to forward it
+		if srep.Destination == f.name {
+			// TODO
+			panic("Received a message for us: not implemented !")
+		} else {
+			if valid := f.prepareSearchReply(srep); valid {
+				f.routing.SendPacketTowards(srep, srep.Destination)
+			}
+		}
 	}()
 }
 
 func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender PeerAddress) {
 	// TODO Should not block !
 	go f.answerSearchRequest(sreq, sender)
+}
+
+// Modifies in-place the search reply
+func (f *FileHandler) prepareSearchReply(srep *SearchReply) bool {
+	if srep.HopLimit <= 1 {
+		srep.HopLimit = 0
+		return false
+	}
+
+	srep.HopLimit -= 1
+	return true
 }
 
 func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddress) {
