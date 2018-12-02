@@ -49,13 +49,28 @@ func (p *PeersHandler) PrintPeers() {
 	fmt.Printf("PEERS %s\n", strings.Join(p.AllPeersStr(), ","))
 }
 
-func (p *PeersHandler) PickRandomNeighbor(excludedAddresses ...PeerAddress) (PeerAddress, bool) {
-	// TODO Find an alternative to the conversion to strings
-	excluded := make([]string, 0)
-	for _, exAddr := range excludedAddresses {
-		excluded = append(excluded, exAddr.String())
+// Pick up to N different neighbors, without any that is in the excluded list
+func (p *PeersHandler) PickRandomNeighbors(n int, excludedAddresses ...PeerAddress) (peers []PeerAddress) {
+	peers = make([]PeerAddress, 0)
+	excluded := StringSetInit(AsStrings(excludedAddresses...))
+
+	for i := range rand.Perm(len(p.knownPeers)) {
+		peer := p.knownPeers[i]
+		if excluded.Has(peer.String()) {
+			continue
+		}
+
+		peers = append(peers, peer)
+		if len(peers) == n {
+			break
+		}
 	}
-	excludedSet := StringSetInit(excluded)
+
+	return peers
+}
+
+func (p *PeersHandler) PickRandomNeighbor(excludedAddresses ...PeerAddress) (PeerAddress, bool) {
+	excludedSet := StringSetInit(AsStrings(excludedAddresses...))
 	notExcluded := make([]string, 0)
 
 	for _, peer := range p.knownPeers {

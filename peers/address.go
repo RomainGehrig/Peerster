@@ -23,6 +23,14 @@ func ResolvePeerAddress(name string) PeerAddress {
 	return UDPAddress{StringAddress{name}.ToUDPAddr()}
 }
 
+func AsStrings(addrs ...PeerAddress) []string {
+	vals := make([]string, len(addrs))
+	for i, s := range addrs {
+		vals[i] = s.String()
+	}
+	return vals
+}
+
 func AsStringAddresses(strs ...string) []PeerAddress {
 	addrs := make([]PeerAddress, 0)
 	for _, str := range strs {
