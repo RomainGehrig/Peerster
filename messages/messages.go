@@ -142,3 +142,11 @@ func (dataReq *DataRequest) ToGossipPacket() *GossipPacket {
 func (dataRep *DataReply) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{DataReply: dataRep}
 }
+
+func (sreq *SearchRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{SearchRequest: sreq}
+}
+
+func (srep *SearchReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{SearchReply: srep}
+}
