@@ -36,7 +36,8 @@ type File struct {
 	Name         string
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
-	Size         int64  // Type given by the Stat().Size()
+	Size         int64 // Type given by the Stat().Size()
+	chunkCount   uint64
 	metafile     []byte // TODO
 	waitGroup    *sync.WaitGroup
 }
@@ -365,14 +366,14 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	} else if file.State == Shared {
 		return nil, errors.New(fmt.Sprint("We won't download file that was shared by us. File is: ", file.Name))
 	} else {
-		file.State = Downloading
 		file.MetafileHash = hash
 		file.metafile = hashes
 		file.waitGroup = &sync.WaitGroup{}
-
 		totalChunks := len(hashes) / sha256.Size
-
+		file.chunkCount = uint64(totalChunks)
 		file.waitGroup.Add(totalChunks)
+
+		file.State = Downloading
 	}
 
 	// Add all hashes to the download list
