@@ -51,7 +51,7 @@ type DownloadRequest struct {
 // TODO Add LRU Cache with callback on eviction to set "HasData" to false (or something else)
 type FileChunk struct {
 	File    *File
-	Number  uint32 // Chunk count: starts at 1 !
+	Number  uint64 // Chunk count: starts at 1 !
 	Hash    SHA256_HASH
 	HasData bool
 	Data    []byte
@@ -385,7 +385,7 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	for chunkCount, chunkHash := range separatedHashes {
 		f.chunks[chunkHash] = &FileChunk{
 			File:    file,
-			Number:  uint32(chunkCount + 1), // Starts at 1 !
+			Number:  uint64(chunkCount + 1), // Starts at 1 !
 			Hash:    chunkHash,
 			HasData: false,
 			Data:    nil,
@@ -496,7 +496,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 	// Read in chunk of 8KB
 	metafile := make([]byte, 0)
 	chunk := make([]byte, BYTES_IN_8KB)
-	var chunkCount uint32 = 1 // Starts at 1 !
+	var chunkCount uint64 = 1 // Starts at 1 !
 	for {
 		read, err := file.Read(chunk)
 		if err != nil {
