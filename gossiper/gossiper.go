@@ -48,7 +48,7 @@ func (g *Gossiper) Run() {
 	go g.rumors.RunRumorHandler(g.net, g.peers, g.routing)
 	go g.routing.RunRoutingHandler(g.peers, g.net, g.rumors)
 	go g.private.RunPrivateHandler(g.routing, g.net)
-	go g.files.RunFileHandler(g.routing)
+	go g.files.RunFileHandler(g.peers, g.routing)
 
 	for {
 		// Eternal wait

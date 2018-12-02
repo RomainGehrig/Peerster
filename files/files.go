@@ -6,6 +6,7 @@ import (
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"io"
@@ -67,6 +68,7 @@ type FileHandler struct {
 	downloadWorkers uint
 	downloadChannel chan<- *DownloadRequest
 	routing         *RoutingHandler
+	peers           *PeersHandler
 	dataDispatcher  *DataReplyDispatcher
 }
 
@@ -126,10 +128,11 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 	return files
 }
 
-func (f *FileHandler) RunFileHandler(routing *RoutingHandler) {
+func (f *FileHandler) RunFileHandler(peers *PeersHandler, routing *RoutingHandler) {
 	f.routing = routing
 	f.dataDispatcher = runDataReplyDispatcher()
 	f.downloadChannel = f.runDownloadGroup(f.downloadWorkers)
+	f.peers = peers
 }
 
 /* We just got some new chunk */
