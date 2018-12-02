@@ -4,7 +4,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
-	. "github.com/RomainGehrig/Peerster/utils"
+	"strings"
 	"time"
 )
 
@@ -55,7 +55,7 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddres
 		}
 
 		for _, kw := range sreq.Keywords {
-			if Match(file.Name, kw) {
+			if strings.Contains(file.Name, kw) {
 				matches = append(matches, &SearchResult{
 					FileName:     file.Name,
 					MetafileHash: file.MetafileHash[:],
