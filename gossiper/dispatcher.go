@@ -43,6 +43,9 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 		case post.FileDownload != nil:
 			dl := post.FileDownload
 			g.files.RequestFileDownload(dl.Destination, dl.Hash, dl.Filename)
+		case post.FileSearch != nil:
+			fs := post.FileSearch
+			g.files.StartSearch(fs.Keywords, fs.Budget)
 		}
 	}
 }
@@ -68,6 +71,10 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.files.HandleDataReply(packet.DataReply)
 	case packet.DataRequest != nil:
 		g.files.HandleDataRequest(packet.DataRequest)
+	case packet.SearchReply != nil:
+		g.files.HandleSearchReply(packet.SearchReply)
+	case packet.SearchRequest != nil:
+		g.files.HandleSearchRequest(packet.SearchRequest, sender)
 	}
 	g.peers.PrintPeers()
 }
