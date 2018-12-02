@@ -33,7 +33,7 @@ const (
 )
 
 type File struct {
-	Name         string
+	Name         string      // Local name
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
 	Size         int64 // Type given by the Stat().Size()
@@ -50,7 +50,7 @@ type DownloadRequest struct {
 // TODO Add LRU Cache with callback on eviction to set "HasData" to false (or something else)
 type FileChunk struct {
 	File    *File
-	Number  uint32 // Chunk count
+	Number  uint32 // Chunk count: starts at 1 !
 	Hash    SHA256_HASH
 	HasData bool
 	Data    []byte
@@ -378,24 +378,28 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 
 	// Add all hashes to the download list
 	// TODO Locks
-	separatedHashes := make([]SHA256_HASH, 0)
-	var chunkCount uint32 = 0
-	for start := 0; start < len(hashes); start += sha256.Size {
-		chunkHash, _ := ToHash(hashes[start : start+sha256.Size])
+	separatedHashes := MetaFileToHashes(hashes)
+	for chunkCount, chunkHash := range separatedHashes {
 		f.chunks[chunkHash] = &FileChunk{
 			File:    file,
-			Number:  chunkCount,
+			Number:  uint32(chunkCount + 1), // Starts at 1 !
 			Hash:    chunkHash,
 			HasData: false,
 			Data:    nil,
 		}
-		separatedHashes = append(separatedHashes, chunkHash)
-
-		chunkCount += 1
 	}
 
 	// No error
 	return separatedHashes, nil
+}
+
+func MetaFileToHashes(hashes []byte) []SHA256_HASH {
+	separatedHashes := make([]SHA256_HASH, 0)
+	for start := 0; start < len(hashes); start += sha256.Size {
+		chunkHash, _ := ToHash(hashes[start : start+sha256.Size])
+		separatedHashes = append(separatedHashes, chunkHash)
+	}
+	return separatedHashes
 }
 
 /* Create a worker pool that will handle the downloads of chunks
@@ -416,7 +420,7 @@ func (f *FileHandler) runDownloadGroup(workers uint) chan<- *DownloadRequest {
 
 					if dataRep, success := f.chunkDownloader(req); success {
 						// TODO Download
-						fmt.Printf("Downloaded chunk: %x\n", dataRep.HashValue)
+						// fmt.Printf("Downloaded chunk: %x\n", dataRep.HashValue)
 						f.acceptDataChunk(req.Hash, dataRep.Data)
 					} else {
 						// TODO abort download
@@ -443,7 +447,7 @@ func (f *FileHandler) acceptDataChunk(hash SHA256_HASH, data []byte) {
 	chunk.Data = data
 	chunk.HasData = true
 
-	fmt.Println("Chunk", chunk.Number, "was downloaded")
+	// fmt.Println("Chunk", chunk.Number, "was downloaded")
 
 	// TODO Timeout on waitgroup
 	chunk.File.waitGroup.Done()
@@ -489,7 +493,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 	// Read in chunk of 8KB
 	metafile := make([]byte, 0)
 	chunk := make([]byte, BYTES_IN_8KB)
-	var chunkCount uint32 = 0
+	var chunkCount uint32 = 1 // Starts at 1 !
 	for {
 		read, err := file.Read(chunk)
 		if err != nil {
