@@ -51,18 +51,18 @@ type SearchRequest struct {
 	Keywords []string
 }
 
-type SearchReply struct {
-	Origin      string
-	Destination string
-	HopLimit    uint32
-	Results     []*SearchResult
-}
-
 type SearchResult struct {
 	FileName     string
 	MetafileHash []byte
 	ChunkMap     []uint64
 	ChunkCount   uint64
+}
+
+type SearchReply struct {
+	Origin      string
+	Destination string
+	HopLimit    uint32
+	Results     []*SearchResult
 }
 
 /// Private messages
