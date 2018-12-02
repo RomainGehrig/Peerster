@@ -25,9 +25,10 @@ type FileState int
 
 // TODO Where are they set ?
 const (
-	Shared FileState = iota
-	Downloaded
-	Downloading
+	Shared              FileState = iota // Shared by us
+	DownloadingMetafile                  // First phase of the download: metafile
+	Downloading                          // Second phase: chunks
+	Downloaded                           // Third phase: end
 	Failed
 )
 
@@ -232,7 +233,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 		file := &File{
 			Name:         localName,
 			MetafileHash: metafileHash,
-			State:        Downloading,
+			State:        DownloadingMetafile,
 		}
 		f.files[metafileHash] = file
 
@@ -251,6 +252,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 		hashes, err := f.addMetafileInfo(metafileHash, metafile.Data)
 		if err != nil {
 			fmt.Println("Metafile", metafileHash, "from", dest, "was invalid")
+			file.State = Failed
 			return
 		}
 		// Query each chunk
@@ -259,6 +261,7 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
 		}
 
 		file.waitGroup.Wait()
+		file.State = Downloaded
 
 		// WaitGroup is done => can save file
 		// TODO Good file flags ?
