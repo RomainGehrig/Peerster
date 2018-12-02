@@ -335,7 +335,7 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 
 		case <-ticker.C:
 			timeouts += 1
-			if timeouts == MAX_RETRIES {
+			if timeouts > MAX_RETRIES {
 				fmt.Printf("Maximum retries reached. Aborting download of %x\n", chunkHash)
 				return nil, false
 			}
