@@ -21,78 +21,79 @@ func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
 
 func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender PeerAddress) {
 	// TODO Should not block !
-	go func() {
-		// If search matches some local files (ie. downloading or sharing), send back a reply
-		matches := make([]*SearchResult, 0)
+	go f.answerSearchRequest(sreq, sender)
+}
 
-		// TODO LOCKS
-		for _, file := range f.files {
-			// We cannot provide chunks if we don't have any
-			if file.State == DownloadingMetafile || file.State == Failed {
-				continue
-			}
+func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddress) {
+	// If search matches some local files (ie. downloading or sharing), send back a reply
+	matches := make([]*SearchResult, 0)
 
-			for _, kw := range sreq.Keywords {
-				if Match(file.Name, kw) {
-					matches = append(matches, &SearchResult{
-						FileName:     file.Name,
-						MetafileHash: file.MetafileHash[:],
-						ChunkMap:     f.chunkMap(file),
-						ChunkCount:   file.chunkCount,
-					})
-					break
-				}
-			}
+	// TODO LOCKS
+	for _, file := range f.files {
+		// We cannot provide chunks if we don't have any
+		if file.State == DownloadingMetafile || file.State == Failed {
+			continue
 		}
 
-		// Send SearchReply if we have answers
-		if len(matches) > 0 {
-			sr := &SearchReply{
-				Origin:      f.name,
-				Destination: sreq.Origin,
-				HopLimit:    DEFAULT_HOP_LIMIT,
-				Results:     matches,
+		for _, kw := range sreq.Keywords {
+			if Match(file.Name, kw) {
+				matches = append(matches, &SearchResult{
+					FileName:     file.Name,
+					MetafileHash: file.MetafileHash[:],
+					ChunkMap:     f.chunkMap(file),
+					ChunkCount:   file.chunkCount,
+				})
+				break
 			}
+		}
+	}
 
-			f.routing.SendPacketTowards(sr, sr.Destination)
+	// Send SearchReply if we have answers
+	if len(matches) > 0 {
+		sr := &SearchReply{
+			Origin:      f.name,
+			Destination: sreq.Origin,
+			HopLimit:    DEFAULT_HOP_LIMIT,
+			Results:     matches,
 		}
 
-		// No forwarding if there is no budget
-		if sreq.Budget <= 1 {
-			return
+		f.routing.SendPacketTowards(sr, sr.Destination)
+	}
+
+	// No forwarding if there is no budget
+	if sreq.Budget <= 1 {
+		return
+	}
+
+	// Update budget
+	newBudget := sreq.Budget - 1
+
+	// Forward the packet elsewhere
+	neighbors := f.peers.PickRandomNeighbors(int(newBudget), sender)
+	if len(neighbors) == 0 {
+		return
+	}
+
+	// Number of neighbors to have an additional budget point
+	additional := newBudget % uint64(len(neighbors))
+	part := newBudget / uint64(len(neighbors))
+
+	// Distribute budget evenly
+	for i, neighbor := range neighbors {
+		budget := part
+		if uint64(i) < additional {
+			budget += 1
 		}
 
-		// Update budget
-		newBudget := sreq.Budget - 1
-
-		// Forward the packet elsewhere
-		neighbors := f.peers.PickRandomNeighbors(int(newBudget), sender)
-		if len(neighbors) == 0 {
-			return
+		nreq := &SearchRequest{
+			Origin:   sreq.Origin,
+			Budget:   budget,
+			Keywords: sreq.Keywords,
 		}
 
-		// Number of neighbors to have an additional budget point
-		additional := newBudget % uint64(len(neighbors))
-		part := newBudget / uint64(len(neighbors))
-
-		// Distribute budget evenly
-		for i, neighbor := range neighbors {
-			budget := part
-			if uint64(i) < additional {
-				budget += 1
-			}
-
-			nreq := &SearchRequest{
-				Origin:   sreq.Origin,
-				Budget:   budget,
-				Keywords: sreq.Keywords,
-			}
-
-			// Send packet
-			f.net.SendGossipPacket(nreq, neighbor)
-		}
-
-	}()
+		// Send packet
+		f.net.SendGossipPacket(nreq, neighbor)
+	}
 }
 
 func (f *FileHandler) chunkMap(file *File) []uint64 {
@@ -117,7 +118,7 @@ func (f *FileHandler) StartSearch(keywords []string, budget uint64) {
 		// 	Budget:   budget,
 		// 	Keywords: keywords,
 		// }
-		// TODO: setup the parts to receive SearchReply corresponding to this
 
+		// TODO: setup the parts to receive SearchReply corresponding to this
 	}
 }
