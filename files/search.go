@@ -206,21 +206,24 @@ func (f *FileHandler) StartSearch(keywords []string, budget uint64) {
 		f.HandleSearchRequest(sr)
 
 	} else {
-		// TODO: if budget == 0 => start exponential search
-		budget = MINIMUM_EXPONENTIAL_BUDGET
+		// Start the request in another goroutine
+		go func() {
+			// TODO: if budget == 0 => start exponential search
+			budget = MINIMUM_EXPONENTIAL_BUDGET
 
-		// Careful to correctly send a query with a maximum of MAXIMUM_EXPONENTIAL_BUDGET
-		for !(query.isCompleted() || budget > MAXIMUM_EXPONENTIAL_BUDGET) {
-			fmt.Println("Exponential budget:", budget)
-			sr := &SearchRequest{
-				Origin:   f.name,
-				Budget:   budget,
-				Keywords: keywords,
+			// Careful to correctly send a query with a maximum of MAXIMUM_EXPONENTIAL_BUDGET
+			for !(query.isCompleted() || budget > MAXIMUM_EXPONENTIAL_BUDGET) {
+				fmt.Println("Exponential budget:", budget)
+				sr := &SearchRequest{
+					Origin:   f.name,
+					Budget:   budget,
+					Keywords: keywords,
+				}
+				f.HandleSearchRequest(sr)
+
+				time.Sleep(EXPONENTIAL_SEARCH_TIMEOUT)
+				budget *= 2
 			}
-			f.HandleSearchRequest(sr)
-
-			time.Sleep(EXPONENTIAL_SEARCH_TIMEOUT)
-			budget *= 2
-		}
+		}()
 	}
 }
