@@ -1,6 +1,7 @@
 package files
 
 import (
+	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
@@ -8,28 +9,44 @@ import (
 	"time"
 )
 
+const MINIMUM_EXPONENTIAL_BUDGET = 2
 const MAXIMUM_EXPONENTIAL_BUDGET = 32
 const EXPONENTIAL_SEARCH_TIMEOUT = 1 * time.Second
 const FULL_MATCHES_NEEDED_TO_STOP_SEARCH = 2
 
+type Query struct {
+	id        uint32
+	keywords  []string
+	replyChan chan<- *SearchReply
+	results   []*File
+}
+
+func (q *Query) isCompleted() bool {
+	return len(q.results) >= FULL_MATCHES_NEEDED_TO_STOP_SEARCH
+}
+
+func (q *Query) isMatchedByResult(sres *SearchResult) bool {
+	for _, kw := range q.keywords {
+		if strings.Contains(sres.FileName, kw) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
 	// TODO Should not block !
 	go func() {
-		// Got a reply: it's either for us (TODO) or needs to forward it
+		// Got a reply: it's either for us or we need to forward it
 		if srep.Destination == f.name {
-			// TODO
-			panic("Received a message for us: not implemented !")
+			f.srepDispatcher.srepChannel <- srep
 		} else {
-			if valid := f.prepareSearchReply(srep); valid {
+			if f.prepareSearchReply(srep) {
 				f.routing.SendPacketTowards(srep, srep.Destination)
 			}
 		}
 	}()
-}
-
-func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender PeerAddress) {
-	// TODO Should not block !
-	go f.answerSearchRequest(sreq, sender)
 }
 
 // Modifies in-place the search reply
@@ -43,7 +60,11 @@ func (f *FileHandler) prepareSearchReply(srep *SearchReply) bool {
 	return true
 }
 
-func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddress) {
+func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender ...PeerAddress) {
+	go f.answerSearchRequest(sreq, sender...)
+}
+
+func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAddress) {
 	// If search matches some local files (ie. downloading or sharing), send back a reply
 	matches := make([]*SearchResult, 0)
 
@@ -88,7 +109,7 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddres
 	newBudget := sreq.Budget - 1
 
 	// Forward the packet elsewhere
-	neighbors := f.peers.PickRandomNeighbors(int(newBudget), sender)
+	neighbors := f.peers.PickRandomNeighbors(int(newBudget), sender...)
 	if len(neighbors) == 0 {
 		return
 	}
@@ -115,6 +136,42 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender PeerAddres
 	}
 }
 
+func (f *FileHandler) addSearchResult(sres *SearchResult) (fileComplete bool) {
+	// TODO Add result by hash: all chunks for this result hash should be updated
+	// If the addition of those chunks completes the file, return true
+	// TODO Locks !
+	panic("not implemented")
+}
+
+func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
+	replyChan := make(chan *SearchReply)
+	query := &Query{
+		keywords:  keywords,
+		replyChan: replyChan,
+	}
+
+	// registerQuery sets the id of the query
+	f.registerQuery(query)
+
+	go func() {
+
+		defer f.unregisterQuery(query)
+
+		for {
+			rep := <-replyChan
+
+			for _, result := range rep.Results {
+				if query.isMatchedByResult(result) && f.addSearchResult(result) && query.isCompleted() {
+					fmt.Println("SEARCH FINISHED")
+					return
+				}
+			}
+		}
+	}()
+
+	return query
+}
+
 func (f *FileHandler) chunkMap(file *File) []uint64 {
 	chunks := make([]uint64, 0)
 	for _, hash := range MetaFileToHashes(file.metafile) {
@@ -127,17 +184,36 @@ func (f *FileHandler) chunkMap(file *File) []uint64 {
 }
 
 func (f *FileHandler) StartSearch(keywords []string, budget uint64) {
-	// TODO: if budget == 0 => start exponential search
-	if budget == 0 {
-		panic("Exponential search not implemented yet")
-	} else {
-		// TODO: else: just start a search with SearchRequest
-		// sr := &SearchRequest{
-		// 	Origin:   f.name,
-		// 	Budget:   budget,
-		// 	Keywords: keywords,
-		// }
+	// TODO: setup the parts to receive SearchReply corresponding to this
+	fmt.Println("New search for keywords", keywords)
+	query := f.newQueryWatcher(keywords)
 
-		// TODO: setup the parts to receive SearchReply corresponding to this
+	if budget != 0 {
+		fmt.Println("Normal search with budget", budget)
+		// TODO: just start a search with SearchRequest if budget is fixed
+		sr := &SearchRequest{
+			Origin:   f.name,
+			Budget:   budget,
+			Keywords: keywords,
+		}
+		f.HandleSearchRequest(sr)
+
+	} else {
+		// TODO: if budget == 0 => start exponential search
+		budget = MINIMUM_EXPONENTIAL_BUDGET
+
+		// Careful to correctly send a query with a maximum of MAXIMUM_EXPONENTIAL_BUDGET
+		for !(query.isCompleted() || budget > MAXIMUM_EXPONENTIAL_BUDGET) {
+			fmt.Println("Exponential budget:", budget)
+			sr := &SearchRequest{
+				Origin:   f.name,
+				Budget:   budget,
+				Keywords: keywords,
+			}
+			f.HandleSearchRequest(sr)
+
+			time.Sleep(EXPONENTIAL_SEARCH_TIMEOUT)
+			budget *= 2
+		}
 	}
 }

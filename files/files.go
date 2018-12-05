@@ -72,6 +72,7 @@ type FileHandler struct {
 	peers           *PeersHandler
 	net             *NetworkHandler
 	dataDispatcher  *DataReplyDispatcher
+	srepDispatcher  *SearchReplyDispatcher
 }
 
 func createDirIfNotExist(abspath string) error {
@@ -133,6 +134,7 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler) {
 	f.routing = routing
 	f.dataDispatcher = runDataReplyDispatcher()
+	f.srepDispatcher = runSearchReplyDispatcher()
 	f.downloadChannel = f.runDownloadGroup(f.downloadWorkers)
 	f.net = net
 	f.peers = peers
