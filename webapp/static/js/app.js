@@ -67,7 +67,9 @@ let vue = new Vue({
         activeTab: RUMOR_TAB,
         tabs: {[RUMOR_TAB]: []},
         files: [],
-        selectedFile: ""
+        selectedFile: "",
+        search: null,
+        searchResults: []
     },
     methods: {
         fileChange: function(name, files) {
@@ -178,8 +180,6 @@ function changeTab(hash) {
 }
 
 function clickSubmitFileRequest(form) {
-
-    console.log(form);
     const fileDestElem = form["file-download-destination"];
     const fileHashElem = form["file-download-hash"];
     const fileNameElem = form["file-download-filename"];
@@ -196,6 +196,15 @@ function clickSubmitFileRequest(form) {
     // TODO Do this without a shotgun
     $(".popover").popover("hide");
     sendFileRequest(destination, fileHash, fileName);
+}
+
+function clickSearchButton(form) {
+    const text = form["searchText"];
+    const keywords = text.value.split(",");
+
+    text.value = "";
+    vue.search = keywords;
+    sendSearchRequest(keywords);
 }
 
 function clickSendFile() {
@@ -308,6 +317,13 @@ async function sendFileName(filename) {
     return jsonPost("/sharedFiles", JSON.stringify({"filename": filename}));
 }
 
+// Search
+async function sendSearchRequest(keywords) {
+    jsonPost("/search", JSON.stringify({"keywords": keywords}));
+}
+async function retrieveSearchResults() {
+    jsonGet("/search").then((obj) => console.log("TODO: search results", obj));
+}
 
 //// Helper methods
 async function jsonQuery(method, endpoint, body) {
