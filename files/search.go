@@ -161,9 +161,16 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 			rep := <-replyChan
 
 			for _, result := range rep.Results {
-				if query.isMatchedByResult(result) && f.addSearchResult(result) && query.isCompleted() {
-					fmt.Println("SEARCH FINISHED")
-					return
+				if query.isMatchedByResult(result) {
+					chunks := make([]string, len(result.ChunkMap))
+					for i, chunk := range result.ChunkMap {
+						chunks[i] = fmt.Sprintf("%d", chunk)
+					}
+					fmt.Printf("FOUND match %s at %s metafile=%x chunks=%s\n", result.FileName, rep.Origin, result.MetafileHash, strings.Join(chunks, ","))
+					if f.addSearchResult(result) && query.isCompleted() {
+						fmt.Println("SEARCH FINISHED")
+						return
+					}
 				}
 			}
 		}
