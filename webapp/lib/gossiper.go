@@ -77,6 +77,11 @@ func postNewMessage(text string) {
 	sendQuery(toSend).Close()
 }
 
+func postSearchRequest(keywords []string) {
+	toSend := &Request{Post: &PostRequest{FileSearch: &FileSearch{Keywords: keywords}}}
+	sendQuery(toSend).Close()
+}
+
 func postNewPrivateMessage(text string, dest string) {
 	toSend := &Request{Post: &PostRequest{Message: &Message{Text: text, Dest: dest}}}
 	sendQuery(toSend).Close()

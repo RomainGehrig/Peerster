@@ -19,6 +19,7 @@ func main() {
 	r.HandleFunc("/pmessage", PrivateMessageHandler).Methods("GET", "POST")
 	r.HandleFunc("/sharedFiles", SharedFileHandler).Methods("GET", "POST")
 	r.HandleFunc("/files", FileRequestHandler).Methods("POST")
+	r.HandleFunc("/search", SearchRequestHandler).Methods("GET", "POST")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 

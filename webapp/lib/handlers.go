@@ -139,3 +139,16 @@ func FileRequestHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+func SearchRequestHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		// TODO
+	} else if r.Method == "POST" {
+		var request struct {
+			Keywords []string `json:"keywords"`
+		}
+		json.NewDecoder(r.Body).Decode(&request)
+		postSearchRequest(request.Keywords)
+		ackPOST(true, w)
+	}
+}
