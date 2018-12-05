@@ -54,7 +54,7 @@ func (p *PeersHandler) PickRandomNeighbors(n int, excludedAddresses ...PeerAddre
 	peers = make([]PeerAddress, 0)
 	excluded := StringSetInit(AsStrings(excludedAddresses...))
 
-	for i := range rand.Perm(len(p.knownPeers)) {
+	for _, i := range rand.Perm(len(p.knownPeers)) {
 		peer := p.knownPeers[i]
 		if excluded.Has(peer.String()) {
 			continue
