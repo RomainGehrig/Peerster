@@ -113,42 +113,45 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 		return
 	}
 
-	// Update budget
-	newBudget := sreq.Budget - 1
+	f.forwardSearchRequest(sreq, sreq.Budget-1, sender...)
+}
 
+func (f *FileHandler) forwardSearchRequest(sreq *SearchRequest, budget uint64, excluded ...PeerAddress) {
 	// Forward the packet elsewhere
-	neighbors := f.peers.PickRandomNeighbors(int(newBudget), sender...)
+	neighbors := f.peers.PickRandomNeighbors(int(budget), excluded...)
 	if len(neighbors) == 0 {
 		return
 	}
 
 	// Number of neighbors to have an additional budget point
-	additional := newBudget % uint64(len(neighbors))
-	part := newBudget / uint64(len(neighbors))
+	additional := budget % uint64(len(neighbors))
+	part := budget / uint64(len(neighbors))
 
 	// Distribute budget evenly
 	for i, neighbor := range neighbors {
-		budget := part
+		peerBudget := part
 		if uint64(i) < additional {
-			budget += 1
+			peerBudget += 1
 		}
 
 		nreq := &SearchRequest{
 			Origin:   sreq.Origin,
-			Budget:   budget,
+			Budget:   peerBudget,
 			Keywords: sreq.Keywords,
 		}
 
 		// Send packet
 		f.net.SendGossipPacket(nreq, neighbor)
 	}
+
 }
 
 func (f *FileHandler) addSearchResult(sres *SearchResult) (fileComplete bool) {
 	// TODO Add result by hash: all chunks for this result hash should be updated
 	// If the addition of those chunks completes the file, return true
 	// TODO Locks !
-	panic("not implemented")
+	// panic("not implemented")
+	return false
 }
 
 func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
@@ -211,6 +214,7 @@ func (f *FileHandler) StartSearch(keywords []string, budget uint64) {
 			Budget:   budget,
 			Keywords: keywords,
 		}
+
 		f.HandleSearchRequest(sr)
 
 	} else {
