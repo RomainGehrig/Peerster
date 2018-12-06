@@ -46,19 +46,17 @@ func main() {
 		postReq.Message = &Message{Text: *msg, Dest: *dest}
 	case *msg != "":
 		postReq.Message = &Message{Text: *msg}
-	case *file != "" && *request != "" && *dest != "":
+	case *file != "" && *request != "":
 		decoded, err := hex.DecodeString(*request)
 		if err != nil {
 			fmt.Println("Couldn't decode -request argument...")
 			os.Exit(1)
 		}
 		hash, err := ToHash(decoded)
+		// If dest is left empty, we will download from all peers that have chunks of the file
 		postReq.FileDownload = &FileDownload{
 			*dest,
 			FileInfo{Hash: hash, Filename: *file}}
-	// TODO File download without target
-	case *file != "" && *request != "":
-		panic("Not implemented")
 	case keywords != nil:
 		postReq.FileSearch = &FileSearch{Budget: *budget, Keywords: keywords}
 	case *file != "":

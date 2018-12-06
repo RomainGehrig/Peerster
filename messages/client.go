@@ -45,6 +45,8 @@ type FileIndex struct {
 	Filename string
 }
 
+// If Destination is "", the file will be downloaded from all
+// known peers that have chunks of the file
 type FileDownload struct {
 	Destination string `json:"destination"`
 	FileInfo

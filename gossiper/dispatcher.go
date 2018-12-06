@@ -42,7 +42,11 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			g.files.RequestFileIndexing(post.FileIndex.Filename)
 		case post.FileDownload != nil:
 			dl := post.FileDownload
-			g.files.RequestFileDownload(dl.Destination, dl.Hash, dl.Filename)
+			if dl.Destination != "" {
+				g.files.RequestFileDownload(dl.Destination, dl.Hash, dl.Filename)
+			} else {
+				g.files.RequestSearchedFileDownload(dl.Hash, dl.Filename)
+			}
 		case post.FileSearch != nil:
 			fs := post.FileSearch
 			g.files.StartSearch(fs.Keywords, fs.Budget)

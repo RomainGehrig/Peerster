@@ -64,6 +64,14 @@ func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 	go f.answerSearchRequest(sreq, sender...)
 }
 
+func (f *FileHandler) RequestSearchedFileDownload(metafileHash SHA256_HASH, localName string) {
+	// TODO Should not block
+	go func() {
+		// TODO
+
+	}()
+}
+
 func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAddress) {
 	// If search matches some local files (ie. downloading or sharing), send back a reply
 	matches := make([]*SearchResult, 0)
