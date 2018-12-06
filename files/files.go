@@ -125,7 +125,7 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 	files := make([]FileInfo, 0)
 	for _, file := range f.files {
 		if file.State == Shared {
-			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash})
+			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash, Size: file.Size})
 		}
 	}
 	return files

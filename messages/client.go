@@ -38,6 +38,7 @@ type Node struct {
 type FileInfo struct {
 	Filename string      `json:"filename"`
 	Hash     SHA256_HASH `json:"hash"`
+	Size     int64       `json:"size"` // In bytes
 }
 
 type FileIndex struct {

@@ -85,6 +85,27 @@ let vue = new Vue({
             return Array.from(byteArray, function(byte) {
                 return ('0' + (byte & 0xFF).toString(16)).slice(-2);
             }).join('').toUpperCase();
+        },
+
+        humanSize: function(byteCount) {
+            const units = ["B", "KB", "MB", "GB"];
+            const precision = 1;
+
+            let currUnit = 0;
+            while (byteCount > 1024 && currUnit + 1 < units.length) {
+                byteCount /= 1024;
+                currUnit++;
+            }
+
+            const ceiledNum = Math.ceil(byteCount * 10**precision)/10**precision;
+            let strNum = ceiledNum.toFixed(precision);
+
+            // Show as integer if we are near it
+            if (Math.abs(byteCount - ~~byteCount) < 0.05) {
+                strNum = ~~byteCount;
+            }
+            return strNum + " " + units[currUnit];
+
         }
     }
 });

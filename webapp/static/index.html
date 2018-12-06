@@ -106,7 +106,7 @@
                                       <template v-else>
                                           <table class="table table-striped table-hover">
                                               <tr v-for="(file, index) in files">
-                                                  <td><strong>{{file.filename}}</strong><br/>
+                                                  <td><strong>{{file.filename}}</strong> ({{humanSize(file.size)}})<br/>
                                                       <span style="font-size: 0.59em">{{toHexString(file.hash)}}</span></td>
                                               </tr>
                                           </table>
