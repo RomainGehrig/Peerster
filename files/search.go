@@ -105,7 +105,12 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 			Results:     matches,
 		}
 
-		f.routing.SendPacketTowards(sr, sr.Destination)
+		// Don't send a packet if we are the target
+		if sreq.Origin == f.name {
+			f.HandleSearchReply(sr)
+		} else {
+			f.routing.SendPacketTowards(sr, sr.Destination)
+		}
 	}
 
 	// No forwarding if there is no budget
