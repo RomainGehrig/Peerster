@@ -221,6 +221,19 @@ function clickSubmitFileRequest(form) {
     sendFileRequest(destination, fileHash, fileName);
 }
 
+// Here we receive the index in the list of results
+function clickDownloadOnSearchResult(index) {
+    file = vue.searchResults[index];
+
+    const alert = $("#alertDownload");
+    alert.html("Starting download of <strong>" + file.filename + "</strong>");
+    alert.fadeIn();
+    setTimeout(() => alert.fadeOut(), 3000);
+
+    // Destination == "" means the file download will use the search information to retrieve the file
+    sendFileRequest(destination="", hash=file.hash, filename=file.filename);
+}
+
 function clickSearchButton(form) {
     const text = form["searchText"];
     const keywords = text.value.split(",");
@@ -325,6 +338,9 @@ async function retrieveSharedFiles() {
 }
 
 async function sendFileRequest(dest, hash, filename) {
+    if (Array.isArray(hash)) {
+        hash = vue.toHexString(hash);
+    }
     jsonPost("/files", JSON.stringify({"destination": dest, "hash": hash, "filename": filename}));
 }
 
