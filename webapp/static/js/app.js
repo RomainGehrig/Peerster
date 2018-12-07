@@ -118,7 +118,10 @@ function init() {
     $('[data-toggle="tooltip"]').tooltip();
 
     refreshInfo();
+    retrieveSearchResults();
     setInterval(refreshInfo, 3000);
+    // Have to adapt to search timeout
+    setInterval(retrieveSearchResults, 1000);
 }
 
 function refreshInfo() {
@@ -128,9 +131,8 @@ function refreshInfo() {
     retrievePeerID();
     retrieveDestinations();
     retrieveSharedFiles();
-    retrieveSearchResults();
+    // retrieveSearchResults();
 }
-
 
 function compareStrings(s1, s2) {
     let as = s1.toLowerCase();
