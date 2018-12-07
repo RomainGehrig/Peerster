@@ -49,7 +49,8 @@ type DownloadRequest struct {
 	Dest string
 }
 
-// TODO Add LRU Cache with callback on eviction to set "HasData" to false (or something else)
+// TODO Add LRU Cache with callback on eviction to set "HasData" to false (or something else),
+// (after a download)
 type FileChunk struct {
 	File    *File
 	Number  uint64 // Chunk count: starts at 1 !
@@ -155,8 +156,6 @@ func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, r
 
 /* We just got some new chunk */
 func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
-	// TODO Have to handle only passing the datarequest if we are not the destination !
-	fmt.Printf("Got data reply from %s to %s for [%x]\n", dataRep.Origin, dataRep.Destination, dataRep.HashValue)
 	// Important: should not block
 	if dataRep.Destination == f.name {
 		go func() {
@@ -219,7 +218,7 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 	return nil, false
 }
 
-// TODO Find a way to share code between private messages and datarequest/reply ?
+// TODO Find a way to share code between private messages and datarequest/reply and searchrequest/reply ?
 func (f *FileHandler) prepareDataRequest(dataReq *DataRequest) bool {
 	if dataReq.HopLimit <= 1 {
 		dataReq.HopLimit = 0
@@ -490,7 +489,7 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	for h, v := range fileChunks {
 		f.chunks[h] = v
 	}
-	fmt.Printf("Indexed file %s with hash %x\n", indexed.Name, indexed.MetafileHash)
+	fmt.Printf("Indexed file %s (%d chunks) with hash %x\n", indexed.Name, len(fileChunks), indexed.MetafileHash)
 
 	f.files[indexed.MetafileHash] = indexed
 }
