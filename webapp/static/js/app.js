@@ -128,7 +128,9 @@ function refreshInfo() {
     retrievePeerID();
     retrieveDestinations();
     retrieveSharedFiles();
+    retrieveSearchResults();
 }
+
 
 function compareStrings(s1, s2) {
     let as = s1.toLowerCase();
@@ -225,6 +227,7 @@ function clickSearchButton(form) {
 
     text.value = "";
     vue.search = keywords;
+    vue.searchResults = [];
     sendSearchRequest(keywords);
 }
 
@@ -343,7 +346,13 @@ async function sendSearchRequest(keywords) {
     jsonPost("/search", JSON.stringify({"keywords": keywords}));
 }
 async function retrieveSearchResults() {
-    jsonGet("/search").then((obj) => console.log("TODO: search results", obj));
+    jsonGet("/search").then((obj) => {
+        if (obj === null) {
+            return;
+        }
+        vue.search = obj.keywords;
+        vue.searchResults = obj.files || [];
+    });
 }
 
 //// Helper methods

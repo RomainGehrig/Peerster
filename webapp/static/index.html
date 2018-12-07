@@ -113,6 +113,17 @@
                                       </template>
                                   </div>
                                   <div class="ibox-content">
+                                      <template v-if="search !== null">
+                                          <p><strong>Results for "{{search.join(", ")}}":</strong><br/>(double click to download)</p>
+                                          <table class="table table-striped table-hover">
+                                              <tr v-for="(file, index) in searchResults">
+                                                  <td :ondblclick="'clickDownloadOnSearchResult(' + index + ')'">
+                                                      <strong>{{file.filename}}</strong> (approx. {{humanSize(file.size)}})<br/>
+                                                          <span style="font-size: 0.59em">{{toHexString(file.hash)}}</span>
+                                                  </td>
+                                              </tr>
+                                          </table>
+                                      </template>
                                       <form onsubmit="clickSearchButton(this); return false;">
                                           <div class="input-group">
                                               <input type="text" id="searchText" placeholder="Search files..." class="form-control">
