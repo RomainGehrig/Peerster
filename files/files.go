@@ -492,8 +492,9 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 	fileStats, _ := file.Stat()
 
 	indexedFile := &File{
-		Name: abspath, // Changeable if needed
-		Size: fileStats.Size(),
+		Name:  abspath, // Changeable if needed
+		Size:  fileStats.Size(),
+		State: Shared,
 	}
 
 	fileChunks := make(map[SHA256_HASH]*FileChunk)
@@ -538,6 +539,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 
 	indexedFile.metafile = metafile
 	indexedFile.MetafileHash = metafileHash
+	indexedFile.chunkCount = uint64(len(fileChunks))
 
 	return indexedFile, fileChunks, nil
 }
