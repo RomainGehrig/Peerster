@@ -27,6 +27,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.PrivateMessages = g.private.GetPrivateMessages()
 		case SharedFilesQuery:
 			resp.Files = g.files.SharedFiles()
+		case FileSearchResultQuery:
+			resp.FileSearchResult = g.files.LastQueryResults()
 		}
 		g.net.SendClientResponse(&resp, sender)
 	case req.Post != nil:

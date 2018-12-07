@@ -15,7 +15,7 @@ const (
 	DestinationsQuery
 	PrivateMessageQuery
 	SharedFilesQuery
-	SearchResultsQuery
+	FileSearchResultQuery
 )
 
 type GetRequest struct {
@@ -57,6 +57,11 @@ type FileSearch struct {
 	Keywords []string
 }
 
+type FileSearchResult struct {
+	Keywords []string    `json:"keywords"`
+	Files    []*FileInfo `json:"files"`
+}
+
 type PostRequest struct {
 	Node         *Node
 	Message      *Message
@@ -71,13 +76,14 @@ type Request struct {
 }
 
 type Response struct {
-	Type            ResourceType
-	Rumors          []RumorMessage
-	PrivateMessages []PrivateMessage
-	PeerID          string
-	Nodes           []string
-	Destinations    []string
-	Files           []FileInfo
+	Type             ResourceType
+	Rumors           []RumorMessage
+	PrivateMessages  []PrivateMessage
+	PeerID           string
+	Nodes            []string
+	Destinations     []string
+	Files            []FileInfo
+	FileSearchResult *FileSearchResult
 }
 
 func (m *Message) String() string {

@@ -82,6 +82,19 @@ func (f *FileHandler) prepareSearchReply(srep *SearchReply) bool {
 	return true
 }
 
+func (f *FileHandler) LastQueryResults() *FileSearchResult {
+	// No query, yet
+	if len(f.queries) == 0 {
+		return nil
+	}
+
+	lastQuery := f.queries[len(f.queries)-1]
+	return &FileSearchResult{
+		Keywords: lastQuery.keywords,
+		Files:    lastQuery.results,
+	}
+}
+
 func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender ...PeerAddress) {
 	go f.answerSearchRequest(sreq, sender...)
 }
