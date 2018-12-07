@@ -19,13 +19,13 @@ import (
 
 const SHARED_DIR_NAME = "_SharedDir"
 const DOWNLOAD_DIR_NAME = "_Downloads"
-const BYTES_IN_8KB = 8 * 1024 // == 8192 Bytes
+const CHUNK_SIZE = 8 * 1024 // == 8192 Bytes
 const NO_ANSWER_TIMEOUT = 5 * time.Second
 const MAX_RETRIES = 5
 
 type FileState int
 
-// TODO Where are they set ?
+// TODO Where are they set ? Failed is not set
 const (
 	Shared              FileState = iota // Shared by us
 	DownloadingMetafile                  // First phase of the download: metafile
@@ -500,7 +500,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 
 	// Read in chunk of 8KB
 	metafile := make([]byte, 0)
-	chunk := make([]byte, BYTES_IN_8KB)
+	chunk := make([]byte, CHUNK_SIZE)
 	var chunkCount uint64 = 1 // Starts at 1 !
 	for {
 		read, err := file.Read(chunk)
@@ -529,7 +529,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 		chunkCount += 1
 	}
 
-	if len(metafile) > BYTES_IN_8KB {
+	if len(metafile) > CHUNK_SIZE {
 		fmt.Println("Metafile is bigger than 8KB! Size:", len(metafile), "Bytes")
 		// TODO err ?
 	}
