@@ -364,6 +364,8 @@ async function sendSearchRequest(keywords) {
 async function retrieveSearchResults() {
     jsonGet("/search").then((obj) => {
         if (obj === null) {
+            vue.search = null;
+            vue.searchResults = [];
             return;
         }
         vue.search = obj.keywords;
