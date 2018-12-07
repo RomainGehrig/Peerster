@@ -5,6 +5,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
+	. "github.com/RomainGehrig/Peerster/utils"
 	"strings"
 	"time"
 )
@@ -18,11 +19,32 @@ type Query struct {
 	id        uint32
 	keywords  []string
 	replyChan chan<- *SearchReply
-	results   []*File
+	results   []*FileInfo
 }
 
 func (q *Query) isCompleted() bool {
 	return len(q.results) >= FULL_MATCHES_NEEDED_TO_STOP_SEARCH
+}
+
+func (q *Query) addResult(sres *SearchResult) {
+	hash, _ := ToHash(sres.MetafileHash)
+	newFile := &FileInfo{
+		Filename: sres.FileName,
+		Hash:     hash,
+		Size:     int64(sres.ChunkCount * CHUNK_SIZE), // Approx of the size
+	}
+
+	// Check that we don't double add the same result
+	// Uniqueness is determined by fileName & hash
+	for _, file := range q.results {
+		// Stop if non-unique
+		if file.Filename == newFile.Filename && file.Hash == newFile.Hash {
+			return
+		}
+	}
+
+	// Unique => add result
+	q.results = append(q.results, newFile)
 }
 
 func (q *Query) isMatchedByResult(sres *SearchResult) bool {
@@ -151,12 +173,44 @@ func (f *FileHandler) forwardSearchRequest(sreq *SearchRequest, budget uint64, e
 
 }
 
-func (f *FileHandler) addSearchResult(sres *SearchResult) (fileComplete bool) {
+func (f *FileHandler) addSearchResult(sres *SearchResult, origin string) (fileComplete bool) {
 	// TODO Add result by hash: all chunks for this result hash should be updated
-	// If the addition of those chunks completes the file, return true
-	// TODO Locks !
-	// panic("not implemented")
-	return false
+
+	hash, _ := ToHash(sres.MetafileHash)
+
+	// Lock everything so we don't run into issues where two goroutines add files/chunks at the same time
+	f.searchedLock.Lock()
+	defer f.searchedLock.Unlock()
+
+	file, present := f.searchedFiles[hash]
+	if !present {
+		file = &SearchedFile{
+			firstPeer: origin,
+			maxChunk:  0,
+			chunks:    make([]string, sres.ChunkCount),
+		}
+
+		f.searchedFiles[hash] = file
+	}
+
+	for _, chunk := range sres.ChunkMap {
+		// TODO Eviction of old chunks/new chunks: do it at random ?
+		file.chunks[chunk-1] = origin
+
+		// Update maxChunk if we have a chunk that fills the "hole"
+		if chunk == file.maxChunk+1 {
+			file.maxChunk = chunk
+
+			for file.maxChunk < uint64(len(file.chunks)) && file.chunks[file.maxChunk] != "" {
+				file.maxChunk += 1
+			}
+		}
+	}
+
+	// Return true if the file is complete. Important -> means that when we
+	// receive multiple times the same answer (due to expanding ring) we return
+	// true each time (if file is completed the first time)
+	return file.maxChunk == uint64(len(file.chunks))
 }
 
 func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
@@ -165,6 +219,8 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 		keywords:  keywords,
 		replyChan: replyChan,
 	}
+
+	f.queries = append(f.queries, query)
 
 	// registerQuery sets the id of the query
 	f.registerQuery(query)
@@ -178,15 +234,24 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 
 			for _, result := range rep.Results {
 				if query.isMatchedByResult(result) {
-					chunks := make([]string, len(result.ChunkMap))
-					for i, chunk := range result.ChunkMap {
-						chunks[i] = fmt.Sprintf("%d", chunk)
+					// Print the chunks
+					{
+						chunks := make([]string, len(result.ChunkMap))
+						for i, chunk := range result.ChunkMap {
+							chunks[i] = fmt.Sprintf("%d", chunk)
+						}
+						fmt.Printf("FOUND match %s at %s metafile=%x chunks=%s\n", result.FileName, rep.Origin, result.MetafileHash, strings.Join(chunks, ","))
 					}
-					fmt.Printf("FOUND match %s at %s metafile=%x chunks=%s\n", result.FileName, rep.Origin, result.MetafileHash, strings.Join(chunks, ","))
-					if f.addSearchResult(result) && query.isCompleted() {
-						fmt.Println("SEARCH FINISHED")
-						return
+
+					if f.addSearchResult(result, rep.Origin) {
+						query.addResult(result)
+
+						if query.isCompleted() {
+							fmt.Println("SEARCH FINISHED")
+							return
+						}
 					}
+
 				}
 			}
 		}

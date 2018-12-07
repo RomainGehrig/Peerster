@@ -58,11 +58,21 @@ type FileChunk struct {
 	Data    []byte
 }
 
+type SearchedFile struct {
+	firstPeer string
+	maxChunk  uint64   // highest chunk number such that chunks [1..maxChunk] all have known owners
+	chunks    []string // index is chunk number-1, value is the current owner
+	// TODO: do we want first known owner or last known owner ? Do it at random ?
+}
+
 type FileHandler struct {
 	// filesLock     *sync.RWMutex // TODO locks
 	// chunksLock     *sync.RWMutex // TODO locks
 	files           map[SHA256_HASH]*File // Mapping from hashes to their corresponding file
 	chunks          map[SHA256_HASH]*FileChunk
+	searchedFiles   map[SHA256_HASH]*SearchedFile
+	queries         []*Query
+	searchedLock    *sync.RWMutex
 	sharedDir       string
 	downloadDir     string
 	name            string
@@ -111,8 +121,11 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 	}
 
 	return &FileHandler{
-		files:           make(map[SHA256_HASH]*File),      // MetafileHash to file
-		chunks:          make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
+		files:           make(map[SHA256_HASH]*File),         // MetafileHash to file
+		chunks:          make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
+		searchedFiles:   make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
+		searchedLock:    &sync.RWMutex{},
+		queries:         make([]*Query, 0),
 		sharedDir:       sharedDir,
 		downloadDir:     downloadDir,
 		downloadWorkers: downloadWorkers,
