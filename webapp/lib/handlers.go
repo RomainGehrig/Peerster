@@ -142,7 +142,8 @@ func FileRequestHandler(w http.ResponseWriter, r *http.Request) {
 
 func SearchRequestHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		// TODO
+		fileSearchResult := getLastSearchRequest()
+		json.NewEncoder(w).Encode(fileSearchResult)
 	} else if r.Method == "POST" {
 		var request struct {
 			Keywords []string `json:"keywords"`
