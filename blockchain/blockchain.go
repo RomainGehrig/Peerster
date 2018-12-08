@@ -5,28 +5,33 @@ import (
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/simple"
+	. "github.com/RomainGehrig/Peerster/utils"
 	"sync"
 )
 
 const TX_PUBLISH_HOP_LIMIT = 10
 const BLOCK_PUBLISH_HOP_LIMIT = 20
 
+// To avoid deadlocks: always take blocksLock -> mappingLock -> pendingTxLock
 type BlockchainHandler struct {
-	pendingTx     map[string]*File
 	blocks        map[SHA256_HASH]*Block
+	blocksLock    *sync.RWMutex
 	mapping       map[string]SHA256_HASH
 	mappingLock   *sync.RWMutex
+	pendingTx     map[string]*File
 	pendingTxLock *sync.RWMutex
+	lastBlockHash SHA256_HASH
 	simple        *SimpleHandler
 }
 
 func NewBlockchainHandler() *BlockchainHandler {
 	return &BlockchainHandler{
 		pendingTx:     make(map[string]*File),
+		pendingTxLock: &sync.RWMutex{},
 		blocks:        make(map[SHA256_HASH]*Block),
+		blocksLock:    &sync.RWMutex{},
 		mapping:       make(map[string]SHA256_HASH),
 		mappingLock:   &sync.RWMutex{},
-		pendingTxLock: &sync.RWMutex{},
 	}
 }
 
@@ -70,17 +75,62 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 	}()
 }
 
+func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
+	// TODO Exercise 1: can only add to last seen block
+	return b.lastBlockHash == [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} || blk.PrevHash == b.lastBlockHash
+}
+
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 	// Should not block
 	fmt.Println("Got blockpublish:", blockPub)
-	blk := blockPub.Block
+	go func() {
+		blk := &blockPub.Block
 
-	// TODO
-	if !blk.HasValidPoW() {
-		return
+		// Skip blocks we can't take
+		if !blk.HasValidPoW() || !b.blockIsAcceptable(blk) {
+			return
+		}
+
+		b.acceptBlock(blk)
+
+		// Forward if enough budget
+		if b.prepareBlockPublish(blockPub) {
+			b.simple.BroadcastMessage(blockPub, nil)
+		}
+	}()
+}
+
+func (b *BlockchainHandler) acceptBlock(blk *Block) {
+	// Careful with deadlocks !
+	b.blocksLock.Lock()
+	defer b.blocksLock.Unlock()
+
+	b.mappingLock.Lock()
+	defer b.mappingLock.Unlock()
+
+	b.pendingTxLock.Lock()
+	defer b.pendingTxLock.Unlock()
+
+	blkHash := blk.Hash()
+	b.blocks[blkHash] = blk
+
+	// TODO Exercise 2, change this:
+	// Update last block
+	b.lastBlockHash = blkHash
+
+	for _, newTx := range blk.Transactions {
+		file := newTx.File
+		fileHash, _ := ToHash(file.MetafileHash)
+		b.mapping[file.Name] = fileHash
+
+		// TODO Exercise 2: Only invalidate transactions that are invalidated
+		// by longest chain, ie. if the new block is the new head of the chain
+
+		// Delete transactions that are invalidated by block
+		if _, present := b.pendingTx[file.Name]; present {
+			delete(b.pendingTx, file.Name)
+		}
 	}
-
-	// TODO
 }
 
 func (b *BlockchainHandler) PublishBindingForFile(file *File) {
