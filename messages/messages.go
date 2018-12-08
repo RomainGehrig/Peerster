@@ -116,6 +116,13 @@ type GossipPacket struct {
 }
 
 /// Hash function
+func (b *Block) HasValidPoW() bool {
+	// TODO Generalize ?
+	hash := b.Hash()
+	// 16 bits == 2 bytes
+	return hash[0] == 0x0 && hash[1] == 0x0
+}
+
 func (b *Block) Hash() (out [32]byte) {
 	h := sha256.New()
 	h.Write(b.PrevHash[:])
@@ -203,4 +210,12 @@ func (sreq *SearchRequest) ToGossipPacket() *GossipPacket {
 
 func (srep *SearchReply) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{SearchReply: srep}
+}
+
+func (tx *TxPublish) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{TxPublish: tx}
+}
+
+func (b *BlockPublish) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{BlockPublish: b}
 }
