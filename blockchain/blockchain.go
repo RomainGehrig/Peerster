@@ -144,12 +144,47 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	b.pendingTxLock.Lock()
 	defer b.pendingTxLock.Unlock()
 
-	blkHash := blk.Hash()
-	b.blocks[blkHash] = blk
+	// New block is saved with height
+	var newHeight uint = 1
+	if newBlk.PrevHash != ZERO_SHA256_HASH && b.lastBlockHash != ZERO_SHA256_HASH {
+		newHeight += b.blocks[newBlk.PrevHash].height
+	}
+	newBlkAug := &BlockAugmented{
+		block:  newBlk,
+		height: newHeight,
+	}
+	blkHash := newBlk.Hash()
+	b.blocks[blkHash] = newBlkAug
 
-	// TODO Exercise 2, change this:
-	// Update last block
-	b.lastBlockHash = blkHash
+	// Only cases where lastBlockHash is not present is when lastHash == 0
+	currBlkAug, _ := b.blocks[b.lastBlockHash]
+
+	// Print "CHAIN ..." only if something changes:
+	// - grows current main chain
+	// - makes a side chain bigger than the main chain
+
+	// TODO Exercise 2
+	// If we grow the current chain
+	if b.lastBlockHash == newBlk.PrevHash || b.lastBlockHash == ZERO_SHA256_HASH {
+		b.lastBlockHash = blkHash
+		b.applyBlockTx(newBlk)
+		fmt.Println(b.ChainString())
+	} else if newHeight > currBlkAug.height { // A side-chain became bigger
+		rewind, apply := b.blockRewind(currBlkAug, newBlkAug)
+		for _, rewBlk := range rewind {
+			b.unapplyBlockTx(rewBlk)
+		}
+		for _, appBlk := range apply {
+			b.applyBlockTx(appBlk)
+		}
+		b.lastBlockHash = blkHash
+		fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))
+		fmt.Println(b.ChainString())
+	} else { // New block in side-chain
+		fmt.Printf("FORK-SHORTER %x\n", blkHash)
+	}
+	// - makes a side chain bigger than the main chain
+}
 
 /*
   Compute what has to be done to go from `prev` to `new`.
