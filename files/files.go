@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/blockchain"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
@@ -83,6 +84,7 @@ type FileHandler struct {
 	routing         *RoutingHandler
 	peers           *PeersHandler
 	net             *NetworkHandler
+	blockchain      *BlockchainHandler
 	dataDispatcher  *DataReplyDispatcher
 	srepDispatcher  *SearchReplyDispatcher
 }
@@ -147,13 +149,14 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 	return files
 }
 
-func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler) {
+func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler, blockchain *BlockchainHandler) {
 	f.routing = routing
 	f.dataDispatcher = runDataReplyDispatcher()
 	f.srepDispatcher = runSearchReplyDispatcher()
 	f.downloadChannel = f.runDownloadGroup(f.downloadWorkers)
 	f.net = net
 	f.peers = peers
+	f.blockchain = blockchain
 }
 
 /* We just got some new chunk */
@@ -220,7 +223,7 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 	return nil, false
 }
 
-// TODO Find a way to share code between private messages and datarequest/reply and searchrequest/reply ?
+// TODO Find a way to share code between private messages and datarequest/reply and searchrequest/reply and Tx/Block Publish?
 func (f *FileHandler) prepareDataRequest(dataReq *DataRequest) bool {
 	if dataReq.HopLimit <= 1 {
 		dataReq.HopLimit = 0
@@ -501,6 +504,14 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	fmt.Printf("Indexed file %s (%d chunks) with hash %x\n", indexed.Name, len(fileChunks), indexed.MetafileHash)
 
 	f.files[indexed.MetafileHash] = indexed
+
+	// Claim the file's name on the blockchain
+	bFile := &File{
+		Name:         indexed.Name,
+		Size:         indexed.Size,
+		MetafileHash: indexed.MetafileHash[:],
+	}
+	f.blockchain.PublishBindingForFile(bFile)
 }
 
 /* Resulting *File has its absolute path as Name. */
