@@ -145,6 +145,50 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	// Update last block
 	b.lastBlockHash = blkHash
 
+/*
+  Compute what has to be done to go from `prev` to `new`.
+
+  Return block splice are ordered to facilitate iteration:
+  `rewind` is ordered from newer to older blocks
+  `apply` is ordered from older to newer blocks
+*/
+func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmented) (rewind []*Block, apply []*Block) {
+	rewind = make([]*Block, 0)
+	// Apply is constructed in the wrong order and then inversed
+	apply = make([]*Block, 0)
+
+	currPrev := prev
+	currNew := new
+
+	// Rewind to the same height
+	for currPrev.height != currNew.height {
+		if currPrev.height > currNew.height {
+			rewind = append(rewind, currPrev.block)
+			currPrev = b.blocks[currPrev.block.PrevHash]
+		} else {
+			apply = append(apply, currNew.block)
+			currNew = b.blocks[currNew.block.PrevHash]
+		}
+	}
+
+	// Find common ancestor
+	for currPrev.block.PrevHash != currPrev.block.PrevHash {
+		currPrev = b.blocks[currPrev.block.PrevHash]
+		currNew = b.blocks[currNew.block.PrevHash]
+		rewind = append(rewind, currPrev.block)
+		apply = append(apply, currNew.block)
+	}
+
+	// Reverse apply as it was constructed backwards
+	for left, right := 0, len(apply)-1; left < right; left, right = left+1, right-1 {
+		apply[left], apply[right] = apply[right], apply[left]
+	}
+
+	return
+}
+
+// Be sure to have all the needed locks to apply the transactions
+func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 	for _, newTx := range blk.Transactions {
 		file := newTx.File
 		fileHash, _ := ToHash(file.MetafileHash)
