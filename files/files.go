@@ -344,8 +344,10 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 				return nil, false
 			}
 
-			chunkInfo, _ := f.chunks[req.Hash]
-			fmt.Printf("DOWNLOADING %s chunk %d from %s\n", chunkInfo.File.Name, chunkInfo.Number, req.Dest)
+			chunkInfo, present := f.chunks[req.Hash]
+			if present {
+				fmt.Printf("DOWNLOADING %s chunk %d from %s\n", chunkInfo.File.Name, chunkInfo.Number, req.Dest)
+			}
 
 			// Drop the packet if it isn't valid
 			if !isDataReplyValid(dataRep) {
