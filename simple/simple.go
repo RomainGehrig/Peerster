@@ -45,10 +45,10 @@ func (s *SimpleHandler) CreateSimpleMessage(text string) *SimpleMessage {
 }
 
 // TODO Excluded as PeerAddress... ?
-func (s *SimpleHandler) BroadcastMessage(m *SimpleMessage, excludedPeers *StringSet) {
+func (s *SimpleHandler) BroadcastMessage(tgp ToGossipPacket, excludedPeers *StringSet) {
 	for _, peer := range s.peers.AllPeers() {
 		if excludedPeers == nil || !excludedPeers.Has(peer.String()) {
-			s.net.SendGossipPacket(m, peer)
+			s.net.SendGossipPacket(tgp, peer)
 		}
 	}
 }

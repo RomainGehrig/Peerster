@@ -52,7 +52,7 @@ func (g *Gossiper) Run() {
 	go g.routing.RunRoutingHandler(g.peers, g.net, g.rumors)
 	go g.private.RunPrivateHandler(g.routing, g.net)
 	go g.files.RunFileHandler(g.net, g.peers, g.routing)
-	go g.blockchain.RunBlockchainHandler()
+	go g.blockchain.RunBlockchainHandler(g.simple)
 
 	for {
 		// Eternal wait
