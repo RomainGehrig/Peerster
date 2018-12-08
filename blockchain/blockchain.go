@@ -204,6 +204,14 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 	}
 }
 
+// Be sure to have all the needed locks to apply the transactions
+func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
+	for _, oldTx := range blk.Transactions {
+		file := oldTx.File
+		delete(b.mapping, file.Name)
+	}
+}
+
 func (b *BlockchainHandler) LongestChainPrevHash() SHA256_HASH {
 	// TODO Exercise 2: hash of longest chain
 	return b.lastBlockHash
