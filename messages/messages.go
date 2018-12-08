@@ -65,6 +65,29 @@ type SearchReply struct {
 	Results     []*SearchResult
 }
 
+/// Blockchain
+type TxPublish struct {
+	File     File
+	HopLimit uint32
+}
+
+type BlockPublish struct {
+	Block    Block
+	HopLimit uint32
+}
+
+type File struct {
+	Name         string
+	Size         int64
+	MetafileHash []byte
+}
+
+type Block struct {
+	PrevHash     [32]byte
+	Nonce        [32]byte
+	Transactions []TxPublish
+}
+
 /// Private messages
 type PrivateMessage struct {
 	Origin      string `json:"origin"`
@@ -84,6 +107,8 @@ type GossipPacket struct {
 	DataReply     *DataReply
 	SearchRequest *SearchRequest
 	SearchReply   *SearchReply
+	TxPublish     *TxPublish
+	BlockPublish  BlockPublish
 }
 
 /// Print functions
