@@ -22,6 +22,17 @@ type Query struct {
 	results   []*FileInfo
 }
 
+func (sf *SearchedFile) isComplete() bool {
+	return sf.maxChunk == uint64(len(sf.chunks))
+}
+
+// Update maxChunk to its max value such that every previous chunk (incl. maxChunk) has an owner
+func (sf *SearchedFile) updateMaxChunk() {
+	for sf.maxChunk < uint64(len(sf.chunks)) && sf.chunks[sf.maxChunk] != "" {
+		sf.maxChunk += 1
+	}
+}
+
 func (q *Query) isCompleted() bool {
 	return len(q.results) >= FULL_MATCHES_NEEDED_TO_STOP_SEARCH
 }
@@ -214,16 +225,14 @@ func (f *FileHandler) addSearchResult(sres *SearchResult, origin string) (fileCo
 		if chunk == file.maxChunk+1 {
 			file.maxChunk = chunk
 
-			for file.maxChunk < uint64(len(file.chunks)) && file.chunks[file.maxChunk] != "" {
-				file.maxChunk += 1
-			}
+			file.updateMaxChunk()
 		}
 	}
 
 	// Return true if the file is complete. Important -> means that when we
 	// receive multiple times the same answer (due to expanding ring) we return
 	// true each time (if file is completed the first time)
-	return file.maxChunk == uint64(len(file.chunks))
+	return file.isComplete()
 }
 
 func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
