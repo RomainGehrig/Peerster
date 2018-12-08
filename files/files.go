@@ -239,70 +239,75 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 	return true
 }
 
+func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
+	// TODO locks
+	// TODO Reenable check ?
+	// if metafile, present := f.files[metafileHash]; present && metafile.State == Shared {
+	// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
+	// 	return
+	// }
+
+	// Create an entry for this file
+	file := &File{
+		Name:         localName,
+		MetafileHash: metafileHash,
+		State:        DownloadingMetafile,
+	}
+	// TODO Locks
+	f.files[metafileHash] = file
+
+	fmt.Println("DOWNLOADING metafile of", localName, "from", metafileOwner)
+	// Request for metafile
+	metafile, success := f.chunkDownloader(&DownloadRequest{
+		Hash: metafileHash,
+		Dest: metafileOwner,
+	})
+	if !success {
+		fmt.Printf("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, metafileOwner)
+		return
+	}
+
+	// Receive and validate
+	hashes, err := f.addMetafileInfo(metafileHash, metafile.Data)
+	if err != nil {
+		fmt.Println("Metafile", metafileHash, "from", metafileOwner, "was invalid")
+		file.State = Failed
+		return
+	}
+	// Query each chunk
+	for i, hash := range hashes {
+		f.downloadChannel <- &DownloadRequest{Hash: hash, Dest: chunkResolver(uint64(i + 1))}
+	}
+
+	file.waitGroup.Wait()
+	file.State = Downloaded
+
+	// WaitGroup is done => can save file
+	// TODO Good file flags ?
+	outputFile, err := os.OpenFile(filepath.Join(f.downloadDir, localName), os.O_CREATE|os.O_WRONLY, 0755)
+	if err != nil {
+		fmt.Println("Could not open file for writing:", err)
+		return
+	}
+
+	totalWritten := int64(0)
+	for _, hash := range hashes {
+		data := f.chunks[hash].Data
+		n, _ := outputFile.Write(data)
+		totalWritten += int64(n)
+	}
+	file.Size = totalWritten
+
+	outputFile.Close()
+	fmt.Println("RECONSTRUCTED file", localName)
+
+}
+
 /* Some client wants to download a file */
 func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH, localName string) {
 	// Should not block
 	go func() {
-		// TODO locks
-		// TODO Reenable check ?
-		// if metafile, present := f.files[metafileHash]; present && metafile.State == Shared {
-		// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
-		// 	return
-		// }
-
-		// Create an entry for this file
-		file := &File{
-			Name:         localName,
-			MetafileHash: metafileHash,
-			State:        DownloadingMetafile,
-		}
-		f.files[metafileHash] = file
-
-		fmt.Println("DOWNLOADING metafile of", localName, "from", dest)
-		// Request for metafile
-		metafile, success := f.chunkDownloader(&DownloadRequest{
-			Hash: metafileHash,
-			Dest: dest,
-		})
-		if !success {
-			fmt.Printf("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, dest)
-			return
-		}
-
-		// Receive and validate
-		hashes, err := f.addMetafileInfo(metafileHash, metafile.Data)
-		if err != nil {
-			fmt.Println("Metafile", metafileHash, "from", dest, "was invalid")
-			file.State = Failed
-			return
-		}
-		// Query each chunk
-		for _, hash := range hashes {
-			f.downloadChannel <- &DownloadRequest{Hash: hash, Dest: dest}
-		}
-
-		file.waitGroup.Wait()
-		file.State = Downloaded
-
-		// WaitGroup is done => can save file
-		// TODO Good file flags ?
-		outputFile, err := os.OpenFile(filepath.Join(f.downloadDir, localName), os.O_CREATE|os.O_WRONLY, 0755)
-		if err != nil {
-			fmt.Println("Could not open file for writing:", err)
-			return
-		}
-
-		totalWritten := int64(0)
-		for _, hash := range hashes {
-			data := f.chunks[hash].Data
-			n, _ := outputFile.Write(data)
-			totalWritten += int64(n)
-		}
-		file.Size = totalWritten
-
-		outputFile.Close()
-		fmt.Println("RECONSTRUCTED file", localName)
-
+		f.downloadFile(metafileHash, dest, localName, func(i uint64) string { return dest })
 	}()
 }
 
