@@ -111,10 +111,22 @@ func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 }
 
 func (f *FileHandler) RequestSearchedFileDownload(metafileHash SHA256_HASH, localName string) {
-	// TODO Should not block
+	// Should not block
 	go func() {
-		// TODO
+		f.searchedLock.RLock()
+		file, present := f.searchedFiles[metafileHash]
+		f.searchedLock.RUnlock()
 
+		if !present || !file.isComplete() {
+			fmt.Println("Cannot download a file that was not search (and matched) before")
+			return
+		}
+
+		metafileOwner := file.chunks[0]
+		resolver := func(chunkNumber uint64) string {
+			return file.chunks[chunkNumber-1]
+		}
+		f.downloadFile(metafileHash, metafileOwner, localName, resolver)
 	}()
 }
 
