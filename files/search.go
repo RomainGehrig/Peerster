@@ -350,7 +350,7 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 	return query
 }
 
-func (f *FileHandler) chunkMap(file *File) []uint64 {
+func (f *FileHandler) chunkMap(file *LocalFile) []uint64 {
 	chunks := make([]uint64, 0)
 	for _, hash := range MetaFileToHashes(file.metafile) {
 		// TODO LOCKS

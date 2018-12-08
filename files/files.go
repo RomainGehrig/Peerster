@@ -34,7 +34,7 @@ const (
 	Failed
 )
 
-type File struct {
+type LocalFile struct {
 	Name         string      // Local name
 	MetafileHash SHA256_HASH // TODO
 	State        FileState
@@ -52,7 +52,7 @@ type DownloadRequest struct {
 // TODO Add LRU Cache with callback on eviction to set "HasData" to false (or something else),
 // (after a download)
 type FileChunk struct {
-	File    *File
+	File    *LocalFile
 	Number  uint64 // Chunk count: starts at 1 !
 	Hash    SHA256_HASH
 	HasData bool
@@ -69,7 +69,7 @@ type SearchedFile struct {
 type FileHandler struct {
 	// filesLock     *sync.RWMutex // TODO locks
 	// chunksLock     *sync.RWMutex // TODO locks
-	files           map[SHA256_HASH]*File // Mapping from hashes to their corresponding file
+	files           map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
 	chunks          map[SHA256_HASH]*FileChunk
 	searchedFiles   map[SHA256_HASH]*SearchedFile
 	searchedLock    *sync.RWMutex
@@ -123,7 +123,7 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 	}
 
 	return &FileHandler{
-		files:           make(map[SHA256_HASH]*File),         // MetafileHash to file
+		files:           make(map[SHA256_HASH]*LocalFile),    // MetafileHash to file
 		chunks:          make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
 		searchedFiles:   make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
 		searchedLock:    &sync.RWMutex{},
@@ -250,7 +250,7 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 	// }
 
 	// Create an entry for this file
-	file := &File{
+	file := &LocalFile{
 		Name:         localName,
 		MetafileHash: metafileHash,
 		State:        DownloadingMetafile,
@@ -504,7 +504,7 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 }
 
 /* Resulting *File has its absolute path as Name. */
-func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*FileChunk, error) {
+func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH]*FileChunk, error) {
 	// Open file
 	file, err := os.Open(abspath)
 	if err != nil {
@@ -512,7 +512,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*File, map[SHA256_HASH]*Fil
 	}
 	fileStats, _ := file.Stat()
 
-	indexedFile := &File{
+	indexedFile := &LocalFile{
 		Name:  abspath, // Changeable if needed
 		Size:  fileStats.Size(),
 		State: Shared,
