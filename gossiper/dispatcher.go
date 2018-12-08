@@ -81,6 +81,10 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.files.HandleSearchReply(packet.SearchReply)
 	case packet.SearchRequest != nil:
 		g.files.HandleSearchRequest(packet.SearchRequest, sender)
+	case packet.TxPublish != nil:
+		g.blockchain.HandleTxPublish(packet.TxPublish)
+	case packet.BlockPublish != nil:
+		g.blockchain.HandleBlockPublish(packet.BlockPublish)
 	}
 	g.peers.PrintPeers()
 }
