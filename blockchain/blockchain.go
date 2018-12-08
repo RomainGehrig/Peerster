@@ -227,6 +227,15 @@ func (b *BlockchainHandler) PublishBindingForFile(file *File) {
 	b.HandleTxPublish(tx)
 }
 
+func (b *BlockchainHandler) PublishBlock(blk *Block) {
+	blkPub := &BlockPublish{
+		Block:    *blk,
+		HopLimit: BLOCK_PUBLISH_HOP_LIMIT + 1,
+	}
+
+	b.simple.BroadcastMessage(blkPub, nil)
+}
+
 func (b *BlockchainHandler) prepareTxPublish(tx *TxPublish) bool {
 	if tx.HopLimit <= 1 {
 		tx.HopLimit = 0
