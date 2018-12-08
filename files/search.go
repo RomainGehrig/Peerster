@@ -71,7 +71,6 @@ func (q *Query) isMatchedByResult(sres *SearchResult) bool {
 			return true
 		}
 	}
-
 	return false
 }
 

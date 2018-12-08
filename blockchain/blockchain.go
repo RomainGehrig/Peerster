@@ -79,6 +79,7 @@ func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 	if !blk.HasValidPoW() {
 		return
 	}
+
 	// TODO
 }
 

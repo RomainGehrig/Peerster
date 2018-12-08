@@ -105,7 +105,6 @@ let vue = new Vue({
                 strNum = ~~byteCount;
             }
             return strNum + " " + units[currUnit];
-
         }
     }
 });
