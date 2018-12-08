@@ -86,12 +86,11 @@ func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 func (b *BlockchainHandler) PublishBindingForFile(file *File) {
 	tx := &TxPublish{
 		File:     *file,
-		HopLimit: TX_PUBLISH_HOP_LIMIT,
+		HopLimit: TX_PUBLISH_HOP_LIMIT + 1,
 	}
 
-	b.simple.BroadcastMessage(tx, nil)
-
-	// TODO add transaction to self
+	// Handle our own transaction
+	b.HandleTxPublish(tx)
 }
 
 func (b *BlockchainHandler) prepareTxPublish(tx *TxPublish) bool {
