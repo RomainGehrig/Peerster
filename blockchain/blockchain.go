@@ -65,7 +65,6 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 
 func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 	// Should not block
-	fmt.Println("Got txpublish:", tx)
 
 	go func() {
 		if !b.isTXValid(tx) {
@@ -97,7 +96,6 @@ func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 	// Should not block
-	fmt.Println("Got blockpublish:", blockPub)
 	go func() {
 		blk := &blockPub.Block
 
@@ -137,10 +135,8 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	// Careful with deadlocks !
 	b.blocksLock.Lock()
 	defer b.blocksLock.Unlock()
-
 	b.mappingLock.Lock()
 	defer b.mappingLock.Unlock()
-
 	b.pendingTxLock.Lock()
 	defer b.pendingTxLock.Unlock()
 
