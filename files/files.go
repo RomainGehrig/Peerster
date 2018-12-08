@@ -72,8 +72,9 @@ type FileHandler struct {
 	files           map[SHA256_HASH]*File // Mapping from hashes to their corresponding file
 	chunks          map[SHA256_HASH]*FileChunk
 	searchedFiles   map[SHA256_HASH]*SearchedFile
-	queries         []*Query
 	searchedLock    *sync.RWMutex
+	seenRequests    []SeenRequest
+	queries         []*Query
 	sharedDir       string
 	downloadDir     string
 	name            string
@@ -126,6 +127,7 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 		chunks:          make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
 		searchedFiles:   make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
 		searchedLock:    &sync.RWMutex{},
+		seenRequests:    make([]SeenRequest, 0),
 		queries:         make([]*Query, 0),
 		sharedDir:       sharedDir,
 		downloadDir:     downloadDir,

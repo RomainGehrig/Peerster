@@ -13,6 +13,7 @@ import (
 const MINIMUM_EXPONENTIAL_BUDGET = 2
 const MAXIMUM_EXPONENTIAL_BUDGET = 32
 const EXPONENTIAL_SEARCH_TIMEOUT = 1 * time.Second
+const SEARCH_REQUEST_IGNORE_TIMEOUT = 500 * time.Millisecond
 const FULL_MATCHES_NEEDED_TO_STOP_SEARCH = 2
 
 type Query struct {
@@ -20,6 +21,12 @@ type Query struct {
 	keywords  []string
 	replyChan chan<- *SearchReply
 	results   []*FileInfo
+}
+
+type SeenRequest struct {
+	Origin    string
+	Keywords  []string
+	Timestamp time.Time
 }
 
 func (sf *SearchedFile) isComplete() bool {
@@ -82,6 +89,41 @@ func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
 	}()
 }
 
+func (f *FileHandler) tidySeenRequests() {
+	now := time.Now()
+	newSeen := f.seenRequests[:0]
+	for _, seenReq := range f.seenRequests {
+		// Seen request is still not timeouted
+		if now.Sub(seenReq.Timestamp) < SEARCH_REQUEST_IGNORE_TIMEOUT {
+			newSeen = append(newSeen, seenReq)
+		}
+	}
+	f.seenRequests = newSeen
+}
+
+func (f *FileHandler) searchRequestShouldBeIgnored(newReq SeenRequest) bool {
+	now := time.Now()
+	for _, req := range f.seenRequests {
+		if req.Origin == newReq.Origin && now.Sub(req.Timestamp) < SEARCH_REQUEST_IGNORE_TIMEOUT {
+			// Not the same keywords
+			if len(req.Keywords) != len(newReq.Keywords) {
+				return false
+			}
+
+			// check if req.Keywords == newReq.Keywords
+			for i, kw := range req.Keywords {
+				if kw != newReq.Keywords[i] {
+					return false
+				}
+			}
+
+			// Same queries
+			return true
+		}
+	}
+	return false
+}
+
 // Modifies in-place the search reply
 func (f *FileHandler) prepareSearchReply(srep *SearchReply) bool {
 	if srep.HopLimit <= 1 {
@@ -107,7 +149,21 @@ func (f *FileHandler) LastQueryResults() *FileSearchResult {
 }
 
 func (f *FileHandler) HandleSearchRequest(sreq *SearchRequest, sender ...PeerAddress) {
+	defer f.tidySeenRequests()
+	seenReq := SeenRequest{
+		Origin:    sreq.Origin,
+		Keywords:  sreq.Keywords[:],
+		Timestamp: time.Now(),
+	}
+
+	if f.searchRequestShouldBeIgnored(seenReq) {
+		return
+	}
+
+	f.seenRequests = append(f.seenRequests, seenReq)
+
 	go f.answerSearchRequest(sreq, sender...)
+
 }
 
 func (f *FileHandler) RequestSearchedFileDownload(metafileHash SHA256_HASH, localName string) {
