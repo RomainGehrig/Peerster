@@ -6,15 +6,21 @@ import (
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/simple"
 	. "github.com/RomainGehrig/Peerster/utils"
+	"strings"
 	"sync"
 )
 
 const TX_PUBLISH_HOP_LIMIT = 10
 const BLOCK_PUBLISH_HOP_LIMIT = 20
 
+type BlockAugmented struct {
+	block  *Block
+	height uint
+}
+
 // To avoid deadlocks: always take blocksLock -> mappingLock -> pendingTxLock
 type BlockchainHandler struct {
-	blocks        map[SHA256_HASH]*Block
+	blocks        map[SHA256_HASH]*BlockAugmented
 	blocksLock    *sync.RWMutex
 	mapping       map[string]SHA256_HASH
 	mappingLock   *sync.RWMutex
@@ -28,7 +34,7 @@ func NewBlockchainHandler() *BlockchainHandler {
 	return &BlockchainHandler{
 		pendingTx:     make(map[string]*File),
 		pendingTxLock: &sync.RWMutex{},
-		blocks:        make(map[SHA256_HASH]*Block),
+		blocks:        make(map[SHA256_HASH]*BlockAugmented),
 		blocksLock:    &sync.RWMutex{},
 		mapping:       make(map[string]SHA256_HASH),
 		mappingLock:   &sync.RWMutex{},
@@ -103,7 +109,25 @@ func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 	}()
 }
 
-func (b *BlockchainHandler) acceptBlock(blk *Block) {
+// Make sure the caller has locks on the map !
+func (b *BlockchainHandler) ChainString() string {
+	blocks := make([]string, 0)
+	currHash := b.LongestChainPrevHash()
+
+	for currHash != ZERO_SHA256_HASH {
+		blk, present := b.blocks[currHash]
+		if !present {
+			break
+		}
+		block := blk.block
+		blocks = append(blocks, block.String())
+		currHash = block.PrevHash
+	}
+
+	return fmt.Sprintf("CHAIN %s", strings.Join(blocks, " "))
+}
+
+func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	// Careful with deadlocks !
 	b.blocksLock.Lock()
 	defer b.blocksLock.Unlock()

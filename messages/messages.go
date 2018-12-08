@@ -172,6 +172,14 @@ func (p *PeerStatus) String() string {
 	return fmt.Sprintf("peer %s nextID %d", p.Identifier, p.NextID)
 }
 
+func (b *Block) String() string {
+	files := make([]string, 0)
+	for _, tx := range b.Transactions {
+		files = append(files, tx.File.Name)
+	}
+	return fmt.Sprintf("%x:%x:%s", b.Hash(), b.PrevHash, strings.Join(files, ","))
+}
+
 type ToGossipPacket interface {
 	ToGossipPacket() *GossipPacket
 }
