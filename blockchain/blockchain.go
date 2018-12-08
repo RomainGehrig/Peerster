@@ -38,6 +38,8 @@ func NewBlockchainHandler() *BlockchainHandler {
 
 func (b *BlockchainHandler) RunBlockchainHandler(simple *SimpleHandler) {
 	b.simple = simple
+
+	go b.runMiner()
 }
 
 func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
@@ -132,6 +134,11 @@ func (b *BlockchainHandler) acceptBlock(blk *Block) {
 			delete(b.pendingTx, file.Name)
 		}
 	}
+}
+
+func (b *BlockchainHandler) LongestChainPrevHash() SHA256_HASH {
+	// TODO Exercise 2: hash of longest chain
+	return b.lastBlockHash
 }
 
 func (b *BlockchainHandler) PublishBindingForFile(file *File) {
