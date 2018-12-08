@@ -5,13 +5,17 @@ import (
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	"math/rand"
+	"time"
 )
 
+const SLEEP_DURATION_AFTER_GENESIS = 5 * time.Second
 func (b *BlockchainHandler) runMiner() {
 	// TODO Timings for publishing
 	var nonce SHA256_HASH
 
+	startTime := time.Now()
 	for {
+
 		// Get pending transactions
 		b.pendingTxLock.RLock()
 		pendingTx := make([]TxPublish, 0)
@@ -41,9 +45,28 @@ func (b *BlockchainHandler) runMiner() {
 
 		// If valid => publish after x seconds
 		if block.HasValidPoW() {
-			fmt.Printf("BLOCK HAS VALID HASH (%d tx): %x\n", len(pendingTx), block.Hash())
-		}
+			// Time from start to mine
+			miningDuration := time.Now().Sub(startTime)
 
+			fmt.Printf("FOUND-BLOCK %x\n", block.Hash())
+			b.acceptBlock(block)
+
+			go func() {
+				// Sleep to add more forks in the system
+
+				// Wait more before publishing the genesis block
+				if prevHash == ZERO_SHA256_HASH {
+					time.Sleep(SLEEP_DURATION_AFTER_GENESIS)
+				} else {
+					time.Sleep(2 * miningDuration)
+				}
+
+				b.PublishBlock(block)
+			}()
+			time.Sleep(ADDITIONAL_WAIT_AFTER_MINING)
+
+			startTime = time.Now()
+		}
 		// Repeat
 	}
 }
