@@ -85,8 +85,14 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 }
 
 func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
-	// TODO Exercise 1: can only add to last seen block
-	return b.lastBlockHash == ZERO_SHA256_HASH || blk.PrevHash == b.lastBlockHash
+	b.blocksLock.RLock()
+	defer b.blocksLock.RUnlock()
+
+	blkHash := blk.Hash()
+	_, parentIsKnown := b.blocks[blk.PrevHash]
+	_, blockIsKnown := b.blocks[blkHash]
+
+	return !blockIsKnown && (b.lastBlockHash == ZERO_SHA256_HASH || parentIsKnown || blk.PrevHash == ZERO_SHA256_HASH)
 }
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
