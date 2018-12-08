@@ -11,6 +11,8 @@ const DEFAULT_HOP_LIMIT = 10
 
 type SHA256_HASH [sha256.Size]byte
 
+var ZERO_SHA256_HASH SHA256_HASH = [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+
 // TODO Put somewhere else ?
 type RegistrationMessageType int
 

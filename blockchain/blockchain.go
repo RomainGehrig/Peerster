@@ -32,6 +32,7 @@ func NewBlockchainHandler() *BlockchainHandler {
 		blocksLock:    &sync.RWMutex{},
 		mapping:       make(map[string]SHA256_HASH),
 		mappingLock:   &sync.RWMutex{},
+		lastBlockHash: ZERO_SHA256_HASH,
 	}
 }
 
@@ -77,7 +78,7 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 
 func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
 	// TODO Exercise 1: can only add to last seen block
-	return b.lastBlockHash == [32]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} || blk.PrevHash == b.lastBlockHash
+	return b.lastBlockHash == ZERO_SHA256_HASH || blk.PrevHash == b.lastBlockHash
 }
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
