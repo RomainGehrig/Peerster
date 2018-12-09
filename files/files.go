@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const SHARED_DIR_NAME = "_SharedDir"
+const SHARED_DIR_NAME = "_SharedFiles"
 const DOWNLOAD_DIR_NAME = "_Downloads"
 const CHUNK_SIZE = 8 * 1024 // == 8192 Bytes
 const NO_ANSWER_TIMEOUT = 5 * time.Second

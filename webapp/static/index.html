@@ -88,7 +88,7 @@
                                       <h1>Files</h1>
                                       <div class="pull-right float-right" style="margin-top:8px">
                                           <input type="file" id="fileupload" style="display:none" @change="fileChange($event.target.name, $event.target.files)"/>
-                                          <label for="fileupload" style="width:100%" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedDir</code> directory'>
+                                          <label for="fileupload" style="width:100%" data-toggle="tooltip" data-html="true" title='<i class="fas fa-exclamation-triangle"></i> Due to browser security features, upload is limited to files living in the <code>_SharedFiles</code> directory'>
                                               <a style="border: 2px dashed lightgrey;" class="btn btn-light btn-big btn-block" role="button">
                                                   <span v-if="selectedFile === ''">Choose a file to share <i class="fas fa-file"></i></span>
                                                   <span v-else>File: <strong>{{selectedFile}}</strong></span>
