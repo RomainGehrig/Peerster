@@ -175,19 +175,16 @@ func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 
 /* A data request came by */
 func (f *FileHandler) HandleDataRequest(dataReq *DataRequest) {
-	fmt.Printf("Download request from %s to %s for [%x]\n", dataReq.Origin, dataReq.Destination, dataReq.HashValue)
 	// Should not block as it is called by the dispatcher
 	go func() {
 		// TODO Should we differentiate between when we are the destination and
 		// when we just happen to have the chunk already ?
 		if dataRep, valid := f.answerTo(dataReq); valid {
-			fmt.Printf("Answering to datarequest from %s to %s for [%x], sending packet to %s\n", dataReq.Origin, dataReq.Destination, dataReq.HashValue, dataRep.Destination)
 			f.routing.SendPacketTowards(dataRep, dataRep.Destination)
 		} else if dataReq.Destination == f.name {
 			// The destination is us but we can't reply because we don't have the data
 			fmt.Printf("We don't have data for %x. Dropping the request.\n", dataReq.HashValue)
 		} else { // Cannot answer so we forward the request
-			fmt.Printf("Cannot answer to request for %x. Forwarding to %s. \n", dataReq.HashValue, dataReq.Destination)
 			if valid := f.prepareDataRequest(dataReq); valid {
 				f.routing.SendPacketTowards(dataReq, dataReq.Destination)
 			}

@@ -72,7 +72,6 @@ func (s *SearchReplyDispatcher) watchForSearchReplies() {
 					delete(queries, reg.queryID)
 				}
 			case rep := <-s.srepChannel:
-				fmt.Println("New REPLY with", len(rep.Results))
 				for _, queryChan := range queries {
 					queryChan <- rep
 				}
