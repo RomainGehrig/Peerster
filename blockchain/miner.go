@@ -9,8 +9,8 @@ import (
 )
 
 const SLEEP_DURATION_AFTER_GENESIS = 5 * time.Second
+
 func (b *BlockchainHandler) runMiner() {
-	// TODO Timings for publishing
 	var nonce SHA256_HASH
 
 	startTime := time.Now()
@@ -63,7 +63,6 @@ func (b *BlockchainHandler) runMiner() {
 
 				b.PublishBlock(block)
 			}()
-			time.Sleep(ADDITIONAL_WAIT_AFTER_MINING)
 
 			startTime = time.Now()
 		}
