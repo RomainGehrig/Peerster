@@ -9,9 +9,13 @@ import (
 )
 
 const SLEEP_DURATION_AFTER_GENESIS = 5 * time.Second
+const SLEEP_BEFORE_MINE = 1 * time.Second
 
 func (b *BlockchainHandler) runMiner() {
 	var nonce SHA256_HASH
+
+	// Sleep some time to help for synchronicity
+	time.Sleep(SLEEP_BEFORE_MINE)
 
 	startTime := time.Now()
 	for {
