@@ -1,7 +1,6 @@
 package files
 
 import (
-	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	"sync/atomic"

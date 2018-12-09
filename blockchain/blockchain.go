@@ -277,7 +277,6 @@ func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmente
 		if !prevPresent || !newPresent {
 			break
 		}
-
 	}
 
 	// Reverse apply as it was constructed backwards
@@ -295,9 +294,6 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 		fileHash, _ := ToHash(file.MetafileHash)
 		b.mapping[file.Name] = fileHash
 
-		// TODO Exercise 2: Only invalidate transactions that are invalidated
-		// by longest chain, ie. if the new block is the new head of the chain
-
 		// Delete transactions that are invalidated by block
 		if _, present := b.pendingTx[file.Name]; present {
 			delete(b.pendingTx, file.Name)
@@ -314,7 +310,6 @@ func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
 }
 
 func (b *BlockchainHandler) LongestChainPrevHash() SHA256_HASH {
-	// TODO Exercise 2: hash of longest chain
 	return b.lastBlockHash
 }
 
