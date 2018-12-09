@@ -18,6 +18,11 @@ type BlockAugmented struct {
 	height uint
 }
 
+type MissingBlock struct {
+	tail *Block
+	head *Block
+}
+
 // To avoid deadlocks: always take blocksLock -> mappingLock -> pendingTxLock
 type BlockchainHandler struct {
 	blocks        map[SHA256_HASH]*BlockAugmented
@@ -88,10 +93,9 @@ func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
 	defer b.blocksLock.RUnlock()
 
 	blkHash := blk.Hash()
-	_, parentIsKnown := b.blocks[blk.PrevHash]
 	_, blockIsKnown := b.blocks[blkHash]
 
-	return !blockIsKnown && (b.lastBlockHash == ZERO_SHA256_HASH || parentIsKnown || blk.PrevHash == ZERO_SHA256_HASH)
+	return !blockIsKnown && blk.HasValidPoW()
 }
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
@@ -100,7 +104,7 @@ func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
 		blk := &blockPub.Block
 
 		// Skip blocks we can't take
-		if !blk.HasValidPoW() || !b.blockIsAcceptable(blk) {
+		if !b.blockIsAcceptable(blk) {
 			return
 		}
 
@@ -131,6 +135,39 @@ func (b *BlockchainHandler) ChainString() string {
 	return fmt.Sprintf("CHAIN %s", strings.Join(blocks, " "))
 }
 
+// Have locks on blocks map !
+// `dangling` means the block/chain is not attached to the main chain
+func (b *BlockchainHandler) getBlockHeight(newBlk *Block) (height uint, dangling bool) {
+
+	// Parent block was present and with a known height
+	prevBlock, present := b.blocks[newBlk.PrevHash]
+	if present && prevBlock.height != 0 {
+		return prevBlock.height + 1, false
+	}
+
+	// Block is genesis
+	if newBlk.PrevHash == ZERO_SHA256_HASH {
+		return 1, false
+	}
+
+	// Otherwise, we make an estimation of the real height because
+	// we don't know all blocks
+	dangling = true
+	height = 1
+	curr := newBlk
+
+	for {
+		if prevBlock, present := b.blocks[curr.PrevHash]; !present {
+			break
+		} else {
+			curr = prevBlock.block
+			height += 1
+		}
+	}
+
+	return
+}
+
 func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	// Careful with deadlocks !
 	b.blocksLock.Lock()
@@ -141,9 +178,12 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	defer b.pendingTxLock.Unlock()
 
 	// New block is saved with height
-	var newHeight uint = 1
-	if newBlk.PrevHash != ZERO_SHA256_HASH && b.lastBlockHash != ZERO_SHA256_HASH {
-		newHeight += b.blocks[newBlk.PrevHash].height
+	estimatedHeight, dangling := b.getBlockHeight(newBlk)
+	var newHeight uint
+	if dangling {
+		newHeight = 0
+	} else {
+		newHeight = estimatedHeight
 	}
 	newBlkAug := &BlockAugmented{
 		block:  newBlk,
@@ -152,20 +192,26 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	blkHash := newBlk.Hash()
 	b.blocks[blkHash] = newBlkAug
 
-	// Only cases where lastBlockHash is not present is when lastHash == 0
-	currBlkAug, _ := b.blocks[b.lastBlockHash]
+	currBlkAug, initialized := b.blocks[b.lastBlockHash]
 
 	// Print "CHAIN ..." only if something changes:
 	// - grows current main chain
 	// - makes a side chain bigger than the main chain
 
-	// TODO Exercise 2
 	// If we grow the current chain
-	if b.lastBlockHash == newBlk.PrevHash || b.lastBlockHash == ZERO_SHA256_HASH {
+	if b.lastBlockHash == newBlk.PrevHash || !initialized {
 		b.lastBlockHash = blkHash
 		b.applyBlockTx(newBlk)
 		fmt.Println(b.ChainString())
-	} else if newHeight > currBlkAug.height { // A side-chain became bigger
+		return
+	}
+
+	// We know local we have some blocks in the blockchain
+	// => currBlkAug exists
+	currHeight, _ := b.getBlockHeight(currBlkAug.block)
+
+	// Side-chain became bigger than current chain
+	if estimatedHeight > currHeight {
 		rewind, apply := b.blockRewind(currBlkAug, newBlkAug)
 		for _, rewBlk := range rewind {
 			b.unapplyBlockTx(rewBlk)
@@ -179,7 +225,6 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	} else { // New block in side-chain
 		fmt.Printf("FORK-SHORTER %x\n", blkHash)
 	}
-	// - makes a side chain bigger than the main chain
 }
 
 /*
@@ -197,9 +242,16 @@ func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmente
 	currPrev := prev
 	currNew := new
 
-	// Rewind to the same height
-	for currPrev.height != currNew.height {
-		if currPrev.height > currNew.height {
+	// 1) Rewind to the same height
+	for {
+		// We don't care if blocks are dangling, we just want the height
+		prevHeight, _ := b.getBlockHeight(currPrev.block)
+		newHeight, _ := b.getBlockHeight(currNew.block)
+		if prevHeight == newHeight {
+			break
+		}
+
+		if prevHeight > newHeight {
 			rewind = append(rewind, currPrev.block)
 			currPrev = b.blocks[currPrev.block.PrevHash]
 		} else {
@@ -208,12 +260,24 @@ func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmente
 		}
 	}
 
-	// Find common ancestor
+	// 2) Find common ancestor (or if there is none, all the transactions we know of)
 	for currPrev.block.PrevHash != currPrev.block.PrevHash {
-		currPrev = b.blocks[currPrev.block.PrevHash]
-		currNew = b.blocks[currNew.block.PrevHash]
+		// Add both blocks
 		rewind = append(rewind, currPrev.block)
 		apply = append(apply, currNew.block)
+
+		// Rewind both
+		newPrev, prevPresent := b.blocks[currPrev.block.PrevHash]
+		newNew, newPresent := b.blocks[currNew.block.PrevHash]
+		currPrev = newPrev
+		currNew = newNew
+
+		// Stop if we can't find previous blocks, ie. no common ancestor because at least
+		// one block is dangling
+		if !prevPresent || !newPresent {
+			break
+		}
+
 	}
 
 	// Reverse apply as it was constructed backwards
