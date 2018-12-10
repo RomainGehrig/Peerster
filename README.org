@@ -1,3 +1,5 @@
+Project was freshly put in the public space. I still need to document a bit the installation and the usage.
+
 * To start the webapp
 
 Just do ~cd webapp; go run server.go~ after the support libraries are installed
