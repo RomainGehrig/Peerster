@@ -2,6 +2,7 @@ package gossiper
 
 import (
 	"fmt"
+
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
 )
@@ -85,6 +86,12 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.blockchain.HandleTxPublish(packet.TxPublish)
 	case packet.BlockPublish != nil:
 		g.blockchain.HandleBlockPublish(packet.BlockPublish)
+	case packet.OnlineMessage != nil:
+		g.failure.HandleOnlineMessage(packet.OnlineMessage)
+	case packet.RequestChunkList != nil:
+		g.failure.HandleReqChunkList(packet.RequestChunkList)
+	case packet.AnswerChunkList != nil:
+		g.failure.HandleAnswer(packet.AnswerChunkList)
 	}
 	g.peers.PrintPeers()
 }

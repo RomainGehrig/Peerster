@@ -1,7 +1,10 @@
 package gossiper
 
 import (
+	"time"
+
 	. "github.com/RomainGehrig/Peerster/blockchain"
+	. "github.com/RomainGehrig/Peerster/failure"
 	. "github.com/RomainGehrig/Peerster/files"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
@@ -9,7 +12,6 @@ import (
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/rumors"
 	. "github.com/RomainGehrig/Peerster/simple"
-	"time"
 )
 
 type Gossiper struct {
@@ -23,22 +25,25 @@ type Gossiper struct {
 	private    *PrivateHandler
 	files      *FileHandler
 	blockchain *BlockchainHandler
+	failure    *FailureHandler
 }
 
 const DEFAULT_DOWNLOADING_WORKER_COUNT uint = 10
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
+	simpleHandler := NewSimpleHandler(name, gossipAddr)
 	return &Gossiper{
 		simpleMode: simple,
 		Name:       name,
 		peers:      NewPeersHandler(peers),
 		routing:    NewRoutingHandler(time.Duration(rtimer) * time.Second),
 		net:        NewNetworkHandler(uiPort, gossipAddr),
-		simple:     NewSimpleHandler(name, gossipAddr),
+		simple:     simpleHandler,
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
 		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT),
 		blockchain: NewBlockchainHandler(),
+		failure:    NewFailureHandler(name, simpleHandler),
 	}
 }
 
@@ -53,6 +58,7 @@ func (g *Gossiper) Run() {
 	go g.private.RunPrivateHandler(g.routing, g.net)
 	go g.files.RunFileHandler(g.net, g.peers, g.routing, g.blockchain)
 	go g.blockchain.RunBlockchainHandler(g.simple)
+	go g.failure.RunFailureHandler()
 
 	for {
 		// Eternal wait
