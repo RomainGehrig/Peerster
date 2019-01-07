@@ -69,10 +69,23 @@ type SearchReply struct {
 	Results     []*SearchResult
 }
 
+type TransactionType int
+
+const (
+	IndexChunk = iota
+	DownloadSuccess
+	DownloadFail
+	NewMaster
+)
+
 /// Blockchain
 type TxPublish struct {
-	File     File
-	HopLimit uint32
+	Type            TransactionType // One type of block to rule them all
+	File            File
+	NodeOrigin      string // Who is the downloader/indexer/master
+	NodeDestination string // From whom the file was downloaded
+	TargetHash      []byte // Target of the transaction
+	HopLimit        uint32
 }
 
 type BlockPublish struct {
@@ -139,10 +152,26 @@ func (b *Block) Hash() (out [32]byte) {
 
 func (t *TxPublish) Hash() (out [32]byte) {
 	h := sha256.New()
+	// Old hash function
 	binary.Write(h, binary.LittleEndian,
 		uint32(len(t.File.Name)))
 	h.Write([]byte(t.File.Name))
 	h.Write(t.File.MetafileHash)
+
+	// Augmented TxPublish
+	h.Write(t.Type) // Type of the transaction
+
+	// Origin of the transaction
+	binary.Write(h, binary.LittleEndian,
+		uint32(len(t.NodeOrigin)))
+	h.Write([]byte(t.NodeOrigin))
+	// Destination of the transaction
+	binary.Write(h, binary.LittleEndian,
+		uint32(len(t.NodeDestination)))
+	h.Write([]byte(t.NodeDestination))
+	// Chunk of the transaction
+	h.Write(t.TargetHash)
+
 	copy(out[:], h.Sum(nil))
 	return
 }
