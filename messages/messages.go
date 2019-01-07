@@ -69,13 +69,13 @@ type SearchReply struct {
 	Results     []*SearchResult
 }
 
-type TransactionType int
+type TransactionType byte
 
 const (
-	IndexChunk = iota
-	DownloadSuccess
-	DownloadFail
-	NewMaster
+	IndexChunk      TransactionType = iota
+	DownloadSuccess                 = iota
+	DownloadFail                    = iota
+	NewMaster                       = iota
 )
 
 /// Blockchain
@@ -159,7 +159,8 @@ func (t *TxPublish) Hash() (out [32]byte) {
 	h.Write(t.File.MetafileHash)
 
 	// Augmented TxPublish
-	h.Write(t.Type) // Type of the transaction
+	value := byte(t.Type)
+	h.Write([]byte{value}) // Type of the transaction
 
 	// Origin of the transaction
 	binary.Write(h, binary.LittleEndian,
