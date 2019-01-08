@@ -15,6 +15,13 @@ const (
 	STARTING = 15
 )
 
+func NewReputationHandler() *ReputationHandler {
+	return &ReputationHandler{
+		allReputations: make(map[string]int64),
+		lock:           &sync.RWMutex{},
+	}
+}
+
 // ReputationHandler is a struct that will represents all informations related to the reputation part of the project
 type ReputationHandler struct {
 	allReputations map[string]int64

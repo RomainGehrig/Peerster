@@ -2,12 +2,14 @@ package blockchain
 
 import (
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/simple"
-	. "github.com/RomainGehrig/Peerster/utils"
 	"strings"
 	"sync"
+
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/reputation"
+	. "github.com/RomainGehrig/Peerster/simple"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const TX_PUBLISH_HOP_LIMIT = 10
@@ -25,25 +27,27 @@ type MissingBlock struct {
 
 // To avoid deadlocks: always take blocksLock -> mappingLock -> pendingTxLock
 type BlockchainHandler struct {
-	blocks        map[SHA256_HASH]*BlockAugmented
-	blocksLock    *sync.RWMutex
-	mapping       map[string]SHA256_HASH
-	mappingLock   *sync.RWMutex
-	pendingTx     map[string]*File
-	pendingTxLock *sync.RWMutex
-	lastBlockHash SHA256_HASH
-	simple        *SimpleHandler
+	blocks            map[SHA256_HASH]*BlockAugmented
+	blocksLock        *sync.RWMutex
+	mapping           map[string]SHA256_HASH
+	mappingLock       *sync.RWMutex
+	pendingTx         map[string]*File
+	pendingTxLock     *sync.RWMutex
+	lastBlockHash     SHA256_HASH
+	simple            *SimpleHandler
+	reputationHandler *ReputationHandler
 }
 
-func NewBlockchainHandler() *BlockchainHandler {
+func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 	return &BlockchainHandler{
-		pendingTx:     make(map[string]*File),
-		pendingTxLock: &sync.RWMutex{},
-		blocks:        make(map[SHA256_HASH]*BlockAugmented),
-		blocksLock:    &sync.RWMutex{},
-		mapping:       make(map[string]SHA256_HASH),
-		mappingLock:   &sync.RWMutex{},
-		lastBlockHash: ZERO_SHA256_HASH,
+		pendingTx:         make(map[string]*File),
+		pendingTxLock:     &sync.RWMutex{},
+		blocks:            make(map[SHA256_HASH]*BlockAugmented),
+		blocksLock:        &sync.RWMutex{},
+		mapping:           make(map[string]SHA256_HASH),
+		mappingLock:       &sync.RWMutex{},
+		lastBlockHash:     ZERO_SHA256_HASH,
+		reputationHandler: rep,
 	}
 }
 
@@ -99,6 +103,7 @@ func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
 }
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
+
 	// Should not block
 	go func() {
 		blk := &blockPub.Block
@@ -200,6 +205,10 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 
 	// If we grow the current chain
 	if b.lastBlockHash == newBlk.PrevHash || !initialized {
+
+		// Impact on the reputation
+		b.reputationHandler.AcceptNewBlock(*newBlk)
+
 		b.lastBlockHash = blkHash
 		b.applyBlockTx(newBlk)
 		fmt.Println(b.ChainString())
@@ -215,9 +224,15 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 		rewind, apply := b.blockRewind(currBlkAug, newBlkAug)
 		for _, rewBlk := range rewind {
 			b.unapplyBlockTx(rewBlk)
+
+			// Impact on reputation
+			b.reputationHandler.UndoBlock(*rewBlk)
 		}
 		for _, appBlk := range apply {
 			b.applyBlockTx(appBlk)
+
+			// Impact on reputation
+			b.reputationHandler.AcceptNewBlock(*appBlk)
 		}
 		b.lastBlockHash = blkHash
 		fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))

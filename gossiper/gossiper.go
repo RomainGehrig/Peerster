@@ -1,15 +1,17 @@
 package gossiper
 
 import (
+	"time"
+
 	. "github.com/RomainGehrig/Peerster/blockchain"
 	. "github.com/RomainGehrig/Peerster/files"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/private"
+	. "github.com/RomainGehrig/Peerster/reputation"
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/rumors"
 	. "github.com/RomainGehrig/Peerster/simple"
-	"time"
 )
 
 type Gossiper struct {
@@ -23,11 +25,13 @@ type Gossiper struct {
 	private    *PrivateHandler
 	files      *FileHandler
 	blockchain *BlockchainHandler
+	reputation *ReputationHandler
 }
 
 const DEFAULT_DOWNLOADING_WORKER_COUNT uint = 10
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
+	reputationHandler := NewReputationHandler()
 	return &Gossiper{
 		simpleMode: simple,
 		Name:       name,
@@ -38,7 +42,8 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
 		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT),
-		blockchain: NewBlockchainHandler(),
+		blockchain: NewBlockchainHandler(reputationHandler),
+		reputation: reputationHandler,
 	}
 }
 
