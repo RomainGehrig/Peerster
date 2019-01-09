@@ -42,7 +42,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simple:     NewSimpleHandler(name, gossipAddr),
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
-		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT),
+		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT, reputationHandler),
 		blockchain: NewBlockchainHandler(reputationHandler),
 		reputation: reputationHandler,
 	}

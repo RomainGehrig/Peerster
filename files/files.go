@@ -15,6 +15,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
+	. "github.com/RomainGehrig/Peerster/reputation"
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/utils"
 )
@@ -71,23 +72,24 @@ type SearchedFile struct {
 type FileHandler struct {
 	// filesLock     *sync.RWMutex // TODO locks
 	// chunksLock     *sync.RWMutex // TODO locks
-	files           map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
-	chunks          map[SHA256_HASH]*FileChunk
-	searchedFiles   map[SHA256_HASH]*SearchedFile
-	searchedLock    *sync.RWMutex
-	seenRequests    []SeenRequest
-	queries         []*Query
-	sharedDir       string
-	downloadDir     string
-	name            string
-	downloadWorkers uint
-	downloadChannel chan<- *DownloadRequest
-	routing         *RoutingHandler
-	peers           *PeersHandler
-	net             *NetworkHandler
-	blockchain      *BlockchainHandler
-	dataDispatcher  *DataReplyDispatcher
-	srepDispatcher  *SearchReplyDispatcher
+	files             map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
+	chunks            map[SHA256_HASH]*FileChunk
+	searchedFiles     map[SHA256_HASH]*SearchedFile
+	searchedLock      *sync.RWMutex
+	seenRequests      []SeenRequest
+	queries           []*Query
+	sharedDir         string
+	downloadDir       string
+	name              string
+	downloadWorkers   uint
+	downloadChannel   chan<- *DownloadRequest
+	routing           *RoutingHandler
+	peers             *PeersHandler
+	net               *NetworkHandler
+	blockchain        *BlockchainHandler
+	dataDispatcher    *DataReplyDispatcher
+	srepDispatcher    *SearchReplyDispatcher
+	reputationhandler *ReputationHandler
 }
 
 func createDirIfNotExist(abspath string) error {
@@ -109,7 +111,7 @@ func createDirIfNotExist(abspath string) error {
 	return nil
 }
 
-func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
+func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *FileHandler {
 	exe, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -126,16 +128,17 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 	}
 
 	return &FileHandler{
-		files:           make(map[SHA256_HASH]*LocalFile),    // MetafileHash to file
-		chunks:          make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
-		searchedFiles:   make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
-		searchedLock:    &sync.RWMutex{},
-		seenRequests:    make([]SeenRequest, 0),
-		queries:         make([]*Query, 0),
-		sharedDir:       sharedDir,
-		downloadDir:     downloadDir,
-		downloadWorkers: downloadWorkers,
-		name:            name,
+		files:             make(map[SHA256_HASH]*LocalFile),    // MetafileHash to file
+		chunks:            make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
+		searchedFiles:     make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
+		searchedLock:      &sync.RWMutex{},
+		seenRequests:      make([]SeenRequest, 0),
+		queries:           make([]*Query, 0),
+		sharedDir:         sharedDir,
+		downloadDir:       downloadDir,
+		downloadWorkers:   downloadWorkers,
+		name:              name,
+		reputationhandler: r,
 	}
 }
 
@@ -198,7 +201,9 @@ func (f *FileHandler) HandleDataRequest(dataReq *DataRequest) {
 		// TODO Should we differentiate between when we are the destination and
 		// when we just happen to have the chunk already ?
 		if dataRep, valid := f.answerTo(dataReq); valid {
-			f.routing.SendPacketTowards(dataRep, dataRep.Destination)
+			if f.reputationhandler.CanDownloadChunk(dataReq.Destination) {
+				f.routing.SendPacketTowards(dataRep, dataRep.Destination)
+			}
 		} else if dataReq.Destination == f.name {
 			// The destination is us but we can't reply because we don't have the data
 			fmt.Printf("We don't have data for %x. Dropping the request.\n", dataReq.HashValue)
