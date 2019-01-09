@@ -1,0 +1,1 @@
+Peerster.exe -UIPort=8082 -rtimer=300 -gossipAddr=127.0.0.1:5002 -name=Node2 -peers=127.0.0.1:5001,127.0.0.1:5006,127.0.0.1:5003

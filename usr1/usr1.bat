@@ -1,1 +1,1 @@
-DSE2018.exe -UIPort=8081 -rtimer=300 -gossipAddr=128.179.159.177:5001 -name=Node1 -peers=128.179.159.177:5002,128.179.159.177:5000
+Peerster.exe -UIPort=8081 -rtimer=300 -gossipAddr=128.179.159.177:5001 -name=Node1 -peers=128.179.159.177:5002,128.179.159.177:5000
