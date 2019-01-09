@@ -4,6 +4,12 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	. "github.com/RomainGehrig/Peerster/blockchain"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
@@ -11,11 +17,6 @@ import (
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/utils"
-	"io"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 const SHARED_DIR_NAME = "_SharedFiles"
@@ -163,6 +164,23 @@ func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, r
 func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 	// Important: should not block
 	if dataRep.Destination == f.name {
+
+		// Impact on the reputation, must add a TxPublish to the blockchain
+		// First create the new TxPublish to be "mined"
+		filename := fmt.Sprintf("%x", dataRep.Data)
+		transaction := TxPublish{
+			Type: DownloadSuccess,
+			File: File{Name: filename,
+				Size:         0,
+				MetafileHash: []byte{}},
+			NodeOrigin:      dataRep.Destination,
+			NodeDestination: dataRep.Origin,
+			TargetHash:      dataRep.Data,
+			HopLimit:        10,
+		}
+		// Handle the transaction in the blockchain
+		go f.blockchain.HandleTxPublish(&transaction)
+
 		go func() {
 			f.dataDispatcher.dataReplyChan <- dataRep
 		}()
