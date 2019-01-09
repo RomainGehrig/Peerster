@@ -32,6 +32,7 @@ const DEFAULT_DOWNLOADING_WORKER_COUNT uint = 10
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
 	reputationHandler := NewReputationHandler()
+	reputationHandler.IncreaseOrCreate(name, 0) // Local initialization of the node with our reputation added
 	return &Gossiper{
 		simpleMode: simple,
 		Name:       name,

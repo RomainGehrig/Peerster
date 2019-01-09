@@ -29,7 +29,7 @@ type ReputationHandler struct {
 }
 
 func (r *ReputationHandler) CanDownloadChunk(nodename string) bool {
-	r.increaseOrCreate(nodename, 0)
+	r.IncreaseOrCreate(nodename, 0)
 	return r.AllReputations[nodename] > 0
 }
 
@@ -43,16 +43,16 @@ func (r *ReputationHandler) AcceptNewTransaction(transaction TxPublish) {
 	r.AffectTransaction(transaction, false)
 }
 
-func (r *ReputationHandler) increaseOrCreate(name string, amount int64) {
+func (r *ReputationHandler) IncreaseOrCreate(name string, amount int64) {
 	// Small lock to avoid concurrence problems with modifications coming from different threads
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	res, ok := r.AllReputations[name]
+	_, ok := r.AllReputations[name]
 	if !ok {
 		r.AllReputations[name] = STARTING
 	}
-	r.AllReputations[name] = res + amount
+	r.AllReputations[name] = r.AllReputations[name] + amount
 }
 
 // affectTransaction is a method that will modify the mapping for a transaction
@@ -64,21 +64,21 @@ func (r *ReputationHandler) AffectTransaction(transaction TxPublish, reversed bo
 	// Case of a new chunk being indexed
 	if transaction.Type == IndexChunk {
 		indexer := transaction.NodeOrigin
-		r.increaseOrCreate(indexer, coef*INDEX)
+		r.IncreaseOrCreate(indexer, coef*INDEX)
 	}
 
 	// A chunk was downloaded successfully
 	if transaction.Type == DownloadSuccess {
 		downloader := transaction.NodeOrigin
 		seeder := transaction.NodeDestination
-		r.increaseOrCreate(seeder, coef*SERVE)
-		r.increaseOrCreate(downloader, coef*(-DOWNLOAD))
+		r.IncreaseOrCreate(seeder, coef*SERVE)
+		r.IncreaseOrCreate(downloader, coef*(-DOWNLOAD))
 	}
 
 	// A chunk wasn't downloaded successfully
 	if transaction.Type == DownloadFail {
 		seeder := transaction.NodeDestination
-		r.increaseOrCreate(seeder, coef*(-FAIL))
+		r.IncreaseOrCreate(seeder, coef*(-FAIL))
 	}
 }
 
