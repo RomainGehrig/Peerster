@@ -30,7 +30,8 @@ type FileState int
 
 // TODO Where are they set ? Failed is not set
 const (
-	Shared              FileState = iota // Shared by us
+	Owned               FileState = iota // Owned by us
+	Replica                              // Replicated on this node
 	DownloadingMetafile                  // First phase of the download: metafile
 	Downloading                          // Second phase: chunks
 	Downloaded                           // Third phase: end
@@ -142,11 +143,12 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 	}
 }
 
+// Files only directly shared by us (not replicated)
 func (f *FileHandler) SharedFiles() []FileInfo {
 	// TODO LOCKS
 	files := make([]FileInfo, 0)
 	for _, file := range f.files {
-		if file.State == Shared {
+		if file.State == Owned {
 			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash, Size: file.Size})
 		}
 	}
@@ -267,7 +269,7 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
 	// TODO locks
 	// TODO Reenable check ?
-	// if metafile, present := f.files[metafileHash]; present && metafile.State == Shared {
+	// if metafile, present := f.files[metafileHash]; present && metafile.State == Owned {
 	// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
 	// 	return
 	// }
@@ -415,8 +417,9 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	// We didn't ask for this file
 	if !present {
 		return nil, errors.New(fmt.Sprint("Received a metafile we didn't ask for. Hash: ", hash))
-	} else if file.State == Shared {
+	} else if file.State == Owned {
 		return nil, errors.New(fmt.Sprint("We won't download file that was shared by us. File is: ", file.Name))
+		// TODO STATE = Replica
 	} else {
 		file.MetafileHash = hash
 		file.metafile = hashes
@@ -546,7 +549,7 @@ func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH
 	indexedFile := &LocalFile{
 		Name:  abspath, // Changeable if needed
 		Size:  fileStats.Size(),
-		State: Shared,
+		State: Owned,
 	}
 
 	fileChunks := make(map[SHA256_HASH]*FileChunk)
