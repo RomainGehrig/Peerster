@@ -1,0 +1,1 @@
+DSE2018.exe -UIPort=8081 -rtimer=10 -gossipAddr=127.0.0.1:5001 -name=Node1 -peers=127.0.0.1:5000
