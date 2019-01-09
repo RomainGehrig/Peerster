@@ -194,7 +194,7 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 
 	for _, file := range f.files {
 		// We cannot provide chunks if we don't have any
-		if file.State == DownloadingMetafile || file.State == Failed {
+		if !file.State.HaveSomeChunks() {
 			continue
 		}
 

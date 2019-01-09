@@ -38,6 +38,16 @@ const (
 	Failed
 )
 
+func (fs FileState) HaveWholeFile() bool {
+	// We don't include Downloaded because we can't guarantee having
+	// all the chunks still laying around
+	return fs == Owned || fs == Replica
+}
+
+func (fs FileState) HaveSomeChunks() bool {
+	return fs.HaveWholeFile() || fs == Downloading
+}
+
 type LocalFile struct {
 	Name         string      // Local name
 	MetafileHash SHA256_HASH // TODO
@@ -276,12 +286,10 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 }
 
 func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
-	// TODO locks
-	// TODO Reenable check ?
-	// if metafile, present := f.files[metafileHash]; present && metafile.State == Owned {
-	// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
-	// 	return
-	// }
+	if metafile, present := f.files[metafileHash]; present && metafile.State.HaveSomeChunks() {
+		fmt.Printf("File is either downloading or already downloaded: won't restart download. Hash: %x \n", metafileHash)
+		return
+	}
 
 	// Create an entry for this file
 	file := &LocalFile{
@@ -302,6 +310,7 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 	})
 	if !success {
 		fmt.Printf("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, metafileOwner)
+		file.State = Failed
 		return
 	}
 
@@ -325,6 +334,7 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 	outputFile, err := os.OpenFile(filepath.Join(f.downloadDir, localName), os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		fmt.Println("Could not open file for writing:", err)
+		file.State = Failed
 		return
 	}
 
