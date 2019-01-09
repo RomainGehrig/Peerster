@@ -4,8 +4,6 @@ import (
 	// "github.com/gorilla/handlers"
 	"flag"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/webapp/lib"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
@@ -35,16 +33,16 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	uiPort := flag.Int("UIPort", 8080, "Gossiper's UI port")
+	uiPort := flag.Int("UIPort", 8080, "Gossiper's UI port and HTTP port")
 	flag.Parse()
 
 	Config.SetGUIPort(*uiPort)
 
-	fmt.Printf("Starting webapp on address http://127.0.0.1:8080 (connecting to Gossiper on GUI port %d)\n", *uiPort)
+	fmt.Printf("Starting webapp on address http://127.0.0.1:%d (connecting to Gossiper on GUI port %d)\n", *uiPort, *uiPort)
 
 	srv := &http.Server{
 		Handler:      r,
-		Addr:         "127.0.0.1:8080",
+		Addr:         fmt.Sprintf("127.0.0.1:%d", *uiPort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
