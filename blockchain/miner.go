@@ -23,11 +23,8 @@ func (b *BlockchainHandler) runMiner() {
 		// Get pending transactions
 		b.pendingTxLock.RLock()
 		pendingTx := make([]TxPublish, 0)
-		for _, file := range b.pendingTx {
-			pendingTx = append(pendingTx, TxPublish{
-				HopLimit: TX_PUBLISH_HOP_LIMIT,
-				File:     *file,
-			})
+		for _, tx := range b.pendingTx {
+			pendingTx = append(pendingTx, *tx)
 		}
 		b.pendingTxLock.RUnlock()
 

@@ -32,7 +32,7 @@ type BlockchainHandler struct {
 	blocksLock        *sync.RWMutex
 	mapping           map[string]SHA256_HASH
 	mappingLock       *sync.RWMutex
-	pendingTx         map[string]*File
+	pendingTx         map[string]*TxPublish
 	pendingTxLock     *sync.RWMutex
 	lastBlockHash     SHA256_HASH
 	simple            *SimpleHandler
@@ -41,7 +41,7 @@ type BlockchainHandler struct {
 
 func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 	return &BlockchainHandler{
-		pendingTx:         make(map[string]*File),
+		pendingTx:         make(map[string]*TxPublish),
 		pendingTxLock:     &sync.RWMutex{},
 		blocks:            make(map[SHA256_HASH]*BlockAugmented),
 		blocksLock:        &sync.RWMutex{},
@@ -84,7 +84,7 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 		b.pendingTxLock.Lock()
 		defer b.pendingTxLock.Unlock()
 
-		b.pendingTx[tx.File.Name] = &tx.File
+		b.pendingTx[tx.File.Name] = tx
 
 		// Flood Tx if there is still budget
 		if b.prepareTxPublish(tx) {
