@@ -3,9 +3,10 @@ package lib
 import (
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/utils"
-	"net/http"
 )
 
 func ackPOST(success bool, w http.ResponseWriter) {
@@ -14,6 +15,11 @@ func ackPOST(success bool, w http.ResponseWriter) {
 	}
 	response.Success = success
 	json.NewEncoder(w).Encode(response)
+}
+
+func ReputationHandler(w http.ResponseWriter, r *http.Request) {
+	allReputs := getReputation()
+	json.NewEncoder(w).Encode(allReputs)
 }
 
 func NodeHandler(w http.ResponseWriter, r *http.Request) {

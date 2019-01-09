@@ -17,20 +17,20 @@ const (
 
 func NewReputationHandler() *ReputationHandler {
 	return &ReputationHandler{
-		allReputations: make(map[string]int64),
+		AllReputations: make(map[string]int64),
 		lock:           &sync.RWMutex{},
 	}
 }
 
 // ReputationHandler is a struct that will represents all informations related to the reputation part of the project
 type ReputationHandler struct {
-	allReputations map[string]int64
+	AllReputations map[string]int64
 	lock           *sync.RWMutex
 }
 
 func (r *ReputationHandler) CanDownloadChunk(nodename string) bool {
 	r.increaseOrCreate(nodename, 0)
-	return r.allReputations[nodename] > 0
+	return r.AllReputations[nodename] > 0
 }
 
 // undoTransaction will undo the effect of the given transaction on the reputation
@@ -48,11 +48,11 @@ func (r *ReputationHandler) increaseOrCreate(name string, amount int64) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	res, ok := r.allReputations[name]
+	res, ok := r.AllReputations[name]
 	if !ok {
-		r.allReputations[name] = STARTING
+		r.AllReputations[name] = STARTING
 	}
-	r.allReputations[name] = res + amount
+	r.AllReputations[name] = res + amount
 }
 
 // affectTransaction is a method that will modify the mapping for a transaction

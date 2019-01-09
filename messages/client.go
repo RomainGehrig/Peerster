@@ -2,6 +2,7 @@ package messages
 
 import (
 	"fmt"
+
 	. "github.com/RomainGehrig/Peerster/constants"
 )
 
@@ -16,6 +17,7 @@ const (
 	PrivateMessageQuery
 	SharedFilesQuery
 	FileSearchResultQuery
+	ReputationQuery
 )
 
 type GetRequest struct {
@@ -84,6 +86,7 @@ type Response struct {
 	Destinations     []string
 	Files            []FileInfo
 	FileSearchResult *FileSearchResult
+	Reputations      map[string]int64
 }
 
 func (m *Message) String() string {

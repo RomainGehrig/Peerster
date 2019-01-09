@@ -2,11 +2,12 @@ package main
 
 import (
 	// "github.com/gorilla/handlers"
-	. "github.com/RomainGehrig/Peerster/webapp/lib"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"time"
+
+	. "github.com/RomainGehrig/Peerster/webapp/lib"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -20,6 +21,7 @@ func main() {
 	r.HandleFunc("/sharedFiles", SharedFileHandler).Methods("GET", "POST")
 	r.HandleFunc("/files", FileRequestHandler).Methods("POST")
 	r.HandleFunc("/search", SearchRequestHandler).Methods("GET", "POST")
+	r.HandleFunc("/reputations", ReputationHandler).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 

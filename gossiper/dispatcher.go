@@ -2,6 +2,7 @@ package gossiper
 
 import (
 	"fmt"
+
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/peers"
 )
@@ -29,6 +30,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.Files = g.files.SharedFiles()
 		case FileSearchResultQuery:
 			resp.FileSearchResult = g.files.LastQueryResults()
+		case ReputationQuery:
+			resp.Reputations = g.reputation.AllReputations
 		}
 		g.net.SendClientResponse(&resp, sender)
 	case req.Post != nil:

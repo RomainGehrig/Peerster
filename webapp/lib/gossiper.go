@@ -3,10 +3,11 @@ package lib
 import (
 	// "github.com/gorilla/handlers"
 	"fmt"
+	"net"
+
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	"github.com/dedis/protobuf"
-	"net"
 )
 
 func waitForResponse(conn net.Conn) *Response {
@@ -105,4 +106,9 @@ func postFileDownloadRequest(destination string, hash SHA256_HASH, filename stri
 func addNewNode(addr string) {
 	toSend := &Request{Post: &PostRequest{Node: &Node{Addr: addr}}}
 	sendQuery(toSend).Close()
+}
+
+func getReputation() map[string]int64 {
+	toSend := &Request{Get: &GetRequest{Type: ReputationQuery}}
+	return reqToResp(toSend).Reputations
 }
