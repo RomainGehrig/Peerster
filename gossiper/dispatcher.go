@@ -65,17 +65,21 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 	case packet.Simple != nil:
 		fmt.Println(packet.Simple)
 		g.simple.HandleSimpleMessage(packet.Simple)
+		g.peers.PrintPeers()
 	case packet.Rumor != nil:
 		fmt.Println(packet.Rumor.StringWithSender(sender))
 		g.rumors.HandleRumorMessage(packet.Rumor, sender)
+		g.peers.PrintPeers()
 	case packet.Status != nil:
 		fmt.Println(packet.Status.StringWithSender(sender))
 		g.rumors.HandleStatusMessage(packet.Status, sender)
+		g.peers.PrintPeers()
 	case packet.Private != nil:
 		if packet.Private.Destination == g.Name {
 			fmt.Println(packet.Private)
 		}
 		g.private.HandlePrivateMessage(packet.Private)
+		g.peers.PrintPeers()
 	case packet.DataReply != nil:
 		g.files.HandleDataReply(packet.DataReply)
 	case packet.DataRequest != nil:
@@ -89,7 +93,6 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 	case packet.BlockPublish != nil:
 		g.blockchain.HandleBlockPublish(packet.BlockPublish)
 	}
-	g.peers.PrintPeers()
 }
 
 func (g *Gossiper) HandleClientMessage(m *Message) {
