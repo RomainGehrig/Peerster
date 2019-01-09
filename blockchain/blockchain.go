@@ -14,6 +14,7 @@ import (
 
 const TX_PUBLISH_HOP_LIMIT = 10
 const BLOCK_PUBLISH_HOP_LIMIT = 20
+const PRINT_CHAIN_OPS = false
 
 type BlockAugmented struct {
 	block  *Block
@@ -211,7 +212,10 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 
 		b.lastBlockHash = blkHash
 		b.applyBlockTx(newBlk)
-		fmt.Println(b.ChainString())
+		if PRINT_CHAIN_OPS {
+			fmt.Println(b.ChainString())
+		}
+
 		return
 	}
 
@@ -235,10 +239,14 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 			b.reputationHandler.AcceptNewBlock(*appBlk)
 		}
 		b.lastBlockHash = blkHash
-		fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))
-		fmt.Println(b.ChainString())
+		if PRINT_CHAIN_OPS {
+			fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))
+			fmt.Println(b.ChainString())
+		}
 	} else { // New block in side-chain
-		fmt.Printf("FORK-SHORTER %x\n", blkHash)
+		if PRINT_CHAIN_OPS {
+			fmt.Printf("FORK-SHORTER %x\n", blkHash)
+		}
 	}
 }
 
