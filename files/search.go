@@ -75,7 +75,6 @@ func (q *Query) isMatchedByResult(sres *SearchResult) bool {
 }
 
 func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
-	// TODO Should not block !
 	go func() {
 		// Got a reply: it's either for us or we need to forward it
 		if srep.Destination == f.name {
@@ -189,7 +188,9 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 	// If search matches some local files (ie. downloading or sharing), send back a reply
 	matches := make([]*SearchResult, 0)
 
-	// TODO LOCKS
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	for _, file := range f.files {
 		// We cannot provide chunks if we don't have any
 		if file.State == DownloadingMetafile || file.State == Failed {

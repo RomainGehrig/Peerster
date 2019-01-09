@@ -71,9 +71,9 @@ type SearchedFile struct {
 }
 
 type FileHandler struct {
-	// filesLock     *sync.RWMutex // TODO locks
 	// chunksLock     *sync.RWMutex // TODO locks
 	files             map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
+	filesLock         *sync.RWMutex
 	chunks            map[SHA256_HASH]*FileChunk
 	searchedFiles     map[SHA256_HASH]*SearchedFile
 	searchedLock      *sync.RWMutex
@@ -129,8 +129,9 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 	}
 
 	return &FileHandler{
-		files:             make(map[SHA256_HASH]*LocalFile),    // MetafileHash to file
-		chunks:            make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
+		files:             make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
+		filesLock:         &sync.RWMutex{},
+		chunks:            make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
 		searchedFiles:     make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
 		searchedLock:      &sync.RWMutex{},
 		seenRequests:      make([]SeenRequest, 0),
@@ -145,7 +146,9 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 
 // Files only directly shared by us (not replicated)
 func (f *FileHandler) SharedFiles() []FileInfo {
-	// TODO LOCKS
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	files := make([]FileInfo, 0)
 	for _, file := range f.files {
 		if file.State == Owned {
@@ -230,7 +233,9 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 		HashValue:   dataReq.HashValue,
 	}
 
-	// TODO Locks
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	// Reply can either be a metafile or a chunk
 	if metafile, present := f.files[hash]; present {
 		reply.Data = metafile.metafile
@@ -280,8 +285,10 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 		MetafileHash: metafileHash,
 		State:        DownloadingMetafile,
 	}
-	// TODO Locks
+
+	f.filesLock.Lock()
 	f.files[metafileHash] = file
+	f.filesLock.Unlock()
 
 	fmt.Println("DOWNLOADING metafile of", localName, "from", metafileOwner)
 	// Request for metafile
@@ -412,8 +419,10 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	}
 
 	// Add metafile to file
-	// TODO Locks
+	f.filesLock.RLock()
 	file, present := f.files[hash]
+	f.filesLock.RUnlock()
+
 	// We didn't ask for this file
 	if !present {
 		return nil, errors.New(fmt.Sprint("Received a metafile we didn't ask for. Hash: ", hash))
@@ -526,7 +535,9 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	}
 	fmt.Printf("Indexed file %s (%d chunks) with hash %x\n", indexed.Name, len(fileChunks), indexed.MetafileHash)
 
+	f.filesLock.Lock()
 	f.files[indexed.MetafileHash] = indexed
+	f.filesLock.Unlock()
 
 	// Claim the file's name on the blockchain
 	bFile := &File{
