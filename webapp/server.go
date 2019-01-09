@@ -2,8 +2,13 @@ package main
 
 import (
 	// "github.com/gorilla/handlers"
+	"flag"
+	"fmt"
+	. "github.com/RomainGehrig/Peerster/webapp/lib"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	. "github.com/RomainGehrig/Peerster/webapp/lib"
@@ -24,6 +29,18 @@ func main() {
 	r.HandleFunc("/reputations", ReputationHandler).Methods("GET")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
+
+	flag.Usage = func() {
+		fmt.Printf("Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
+	uiPort := flag.Int("UIPort", 8080, "Gossiper's UI port")
+	flag.Parse()
+
+	Config.SetGUIPort(*uiPort)
+
+	fmt.Printf("Starting webapp on address http://127.0.0.1:8080 (connecting to Gossiper on GUI port %d)\n", *uiPort)
 
 	srv := &http.Server{
 		Handler:      r,

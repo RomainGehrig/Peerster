@@ -10,6 +10,16 @@ import (
 	"github.com/dedis/protobuf"
 )
 
+type Configuration struct {
+	UIPort int
+}
+
+var Config Configuration = Configuration{}
+
+func (c *Configuration) SetGUIPort(newPort int) {
+	c.UIPort = newPort
+}
+
 func waitForResponse(conn net.Conn) *Response {
 	packetBytes := make([]byte, UDP_DATAGRAM_MAX_SIZE)
 
@@ -28,7 +38,7 @@ func sendQuery(req *Request) net.Conn {
 	if err != nil {
 		fmt.Println(err)
 	}
-	conn, err := net.Dial("udp4", ":8080")
+	conn, err := net.Dial("udp4", fmt.Sprintf(":%d", Config.UIPort))
 	if err != nil {
 		fmt.Println(err)
 	}
