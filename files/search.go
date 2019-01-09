@@ -176,6 +176,7 @@ func (f *FileHandler) RequestSearchedFileDownload(metafileHash SHA256_HASH, loca
 			return
 		}
 
+		// Any chunk owner should own the file's metafile
 		metafileOwner := file.chunks[0]
 		resolver := func(chunkNumber uint64) string {
 			return file.chunks[chunkNumber-1]
@@ -352,6 +353,10 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 
 func (f *FileHandler) chunkMap(file *LocalFile) []uint64 {
 	chunks := make([]uint64, 0)
+
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
+
 	for _, hash := range MetaFileToHashes(file.metafile) {
 		// TODO LOCKS
 		if chunk := f.chunks[hash]; chunk.HasData {

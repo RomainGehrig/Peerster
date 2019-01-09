@@ -71,10 +71,10 @@ type SearchedFile struct {
 }
 
 type FileHandler struct {
-	// chunksLock     *sync.RWMutex // TODO locks
 	files             map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
 	filesLock         *sync.RWMutex
 	chunks            map[SHA256_HASH]*FileChunk
+	chunksLock        *sync.RWMutex
 	searchedFiles     map[SHA256_HASH]*SearchedFile
 	searchedLock      *sync.RWMutex
 	seenRequests      []SeenRequest
@@ -132,6 +132,7 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 		files:             make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
 		filesLock:         &sync.RWMutex{},
 		chunks:            make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
+		chunksLock:        &sync.RWMutex{},
 		searchedFiles:     make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
 		searchedLock:      &sync.RWMutex{},
 		seenRequests:      make([]SeenRequest, 0),
@@ -242,6 +243,9 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 		return reply, true
 	}
 
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
+
 	if chunk, present := f.chunks[hash]; present && chunk.HasData {
 		reply.Data = chunk.Data
 		return reply, true
@@ -324,6 +328,9 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 		return
 	}
 
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
+
 	totalWritten := int64(0)
 	for _, hash := range hashes {
 		data := f.chunks[hash].Data
@@ -378,7 +385,10 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 				return nil, false
 			}
 
+			f.chunksLock.RLock()
 			chunkInfo, present := f.chunks[req.Hash]
+			f.chunksLock.RUnlock()
+
 			if present {
 				fmt.Printf("DOWNLOADING %s chunk %d from %s\n", chunkInfo.File.Name, chunkInfo.Number, req.Dest)
 			}
@@ -443,6 +453,10 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	// Add all hashes to the download list
 	// TODO Locks
 	separatedHashes := MetaFileToHashes(hashes)
+
+	f.chunksLock.Lock()
+	defer f.chunksLock.Unlock()
+
 	for chunkCount, chunkHash := range separatedHashes {
 		f.chunks[chunkHash] = &FileChunk{
 			File:    file,
@@ -504,7 +518,11 @@ func (f *FileHandler) acceptDataChunk(hash SHA256_HASH, data []byte) {
 	// Add chunk to downloaded
 
 	// TODO presence checking should be unnecessary
+
+	f.chunksLock.RLock()
 	chunk, present := f.chunks[hash]
+	f.chunksLock.RUnlock()
+
 	if !present {
 		panic("Chunk not present")
 	}
@@ -527,12 +545,13 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	// Put back the filename as Name instead of the abspath
 	indexed.Name = filename
 
-	// TODO TMP TEST
-	// TODO LOCKS
-	// TODO What about blocks that were previously there,....
+	f.chunksLock.Lock()
+	// Save all file chunks into our global chunk map
 	for h, v := range fileChunks {
 		f.chunks[h] = v
 	}
+	f.chunksLock.Unlock()
+
 	fmt.Printf("Indexed file %s (%d chunks) with hash %x\n", indexed.Name, len(fileChunks), indexed.MetafileHash)
 
 	f.filesLock.Lock()
