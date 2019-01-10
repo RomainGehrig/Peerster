@@ -1,6 +1,7 @@
 package files
 
 import (
+	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 )
 
@@ -13,7 +14,6 @@ func (f *FileHandler) HandleTimeout(hostName string) {
 		//      and tell other replicas of the new replica name
 	}()
 }
-
 
 // Try to claim the file with the
 func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
@@ -28,18 +28,28 @@ func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
 	// TODO Start the OwnershipProcess
 }
 
-
-/******* FUNCTIONS TO USE WHERE WE ARE THE OWNER OF A FILE *******/
+/******* FUNCTIONS TO USE WHEN WE ARE THE OWNER OF A FILE *******/
 
 // Should be run as a new go routine
 // This function is used to do all the housekeeping of having to handle an owned file:
 //  - making sure there are enough replicas
 //  - if not, search for new
 func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
+	// TODO LOCKS
+
+	f.filesLock.RLock()
+	file, present := f.files[fileHash]
+	f.filesLock.RUnlock()
+
+	// Check that we are the owner
+	if !present || file.State != Owned {
+		fmt.Printf("We either don't have or don't own the file with hash %x. Aborting ownership process\n", fileHash)
+		return
+	}
+
 	// TODO Check replicas state
 	// TODO Find new if needed
 	// TODO Distribute replication status (which replicas exist)
-
 
 	// TODO Don't forget: handle timeouts
 }
