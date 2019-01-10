@@ -95,3 +95,8 @@ func (r *ReputationHandler) AcceptNewBlock(block Block) {
 func (r *ReputationHandler) UndoBlock(block Block) {
 	r.AffectBlock(block, true)
 }
+
+func (r *ReputationHandler) CreateTimeoutTransaction(fname, localnodename, peername string) *TxPublish {
+	return &TxPublish{Type: DownloadFail, NodeOrigin: localnodename, NodeDestination: peername,
+		File: File{Name: fname, Size: 0, MetafileHash: []byte{}}}
+}

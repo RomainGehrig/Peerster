@@ -404,6 +404,9 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 		case <-ticker.C:
 			timeouts += 1
 			if timeouts > MAX_RETRIES {
+
+				// Registering the failure in the blockchain
+				f.blockchain.HandleTxPublish(f.reputationhandler.CreateTimeoutTransaction(fmt.Sprintf("%x", req.Hash[:]), f.name, req.Dest))
 				fmt.Printf("Maximum retries reached. Aborting download of %x\n", chunkHash)
 				return nil, false
 			}
