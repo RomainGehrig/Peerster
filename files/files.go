@@ -49,13 +49,14 @@ func (fs FileState) HaveSomeChunks() bool {
 }
 
 type LocalFile struct {
-	Name         string      // Local name
-	MetafileHash SHA256_HASH // TODO
-	State        FileState
-	Size         int64 // Type given by the Stat().Size()
-	chunkCount   uint64
-	metafile     []byte // TODO
-	waitGroup    *sync.WaitGroup
+	Name            string      // Local name
+	MetafileHash    SHA256_HASH // TODO
+	State           FileState
+	Size            int64 // Type given by the Stat().Size()
+	chunkCount      uint64
+	metafile        []byte // TODO
+	waitGroup       *sync.WaitGroup
+	replicationData *ReplicationData
 }
 
 type DownloadRequest struct {
@@ -594,6 +595,8 @@ func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH
 		Size:  fileStats.Size(),
 		State: Owned,
 	}
+
+	indexedFile.InitializeReplicationData()
 
 	fileChunks := make(map[SHA256_HASH]*FileChunk)
 
