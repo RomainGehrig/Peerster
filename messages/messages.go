@@ -72,10 +72,11 @@ type SearchReply struct {
 type TransactionType byte
 
 const (
-	IndexChunk      TransactionType = iota
-	DownloadSuccess                 = iota
-	DownloadFail                    = iota
-	NewMaster                       = iota
+	Other TransactionType = iota
+	IndexChunk
+	DownloadSuccess
+	DownloadFail
+	NewMaster
 )
 
 /// Blockchain
