@@ -59,6 +59,29 @@ func (lf *LocalFile) InitializeReplicationData() {
 	// TODO Init we become a replica (from Downloaded state)
 }
 
+// Handle a timeout in the network
+func (f *FileHandler) HandleTimeout(hostName string) {
+	// Should not block
+	go func() {
+		// TODO Check if host was the owner of a file => download and claim file ?
+		// TODO Check if host was the replica of file we own => need to redistribute to other
+		//      and tell other replicas of the new replica name
+	}()
+}
+
+// Try to claim the file
+func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
+	// TODO Make sure we have the complete file
+
+	// TODO Send a transaction of OwnershipTransfert from previous owner to new owner
+	// TODO Wait a bit so the blockchain converges
+	// TODO See if we are the effective owner -> if not, quit the process
+	// TODO If there are no new owner (ie transactions were lost or something), repeat
+
+	// We are now the new owner
+	// TODO Start the OwnershipProcess
+}
+
 func (f *FileHandler) HandleChallengeRequest(cr *ChallengeRequest) {
 	go func() {
 		if cr.Destination != f.name {
@@ -134,7 +157,7 @@ func (f *FileHandler) HandleReplicationRequest(rr *ReplicationRequest) {
 			f.simple.BroadcastMessage(rr, nil)
 		}
 
-		// TODO Send a ReplicationReply if we are interesting in hosting the file
+		// Send a ReplicationReply if we are interesting in hosting the file
 		// because we have it or if we have space for it or other arbitrary criteria
 
 		// TODO For the moment, an arbitrary (but consistent) decision to choose
@@ -196,6 +219,30 @@ func (f *FileHandler) HandleReplicationACK(ra *ReplicationACK) {
 	}()
 }
 
+// The challenge is essentially a verification to ensure the challengee has all chunks of the file
+func (f *FileHandler) AnswerChallenge(file *LocalFile, req *ChallengeRequest) (out SHA256_HASH) {
+	h := sha256.New()
+	// Write the headers
+	h.Write([]byte(req.Destination))
+	h.Write([]byte(req.Source))
+	h.Write(req.FileHash[:])
+	binary.Write(h, binary.LittleEndian, req.Challenge)
+
+	f.chunksLock.RLock()
+	for _, chunkHash := range MetaFileToHashes(file.metafile) {
+		chunk, present := f.chunks[chunkHash]
+		if !present {
+			return ZERO_SHA256_HASH
+		}
+		h.Write(chunk.Data)
+	}
+	f.chunksLock.RUnlock()
+
+	copy(out[:], h.Sum(nil))
+	return
+}
+
+// TODO Find a way to share code between all thes prepareXXX methods
 func (f *FileHandler) prepareChallengeRequest(cr *ChallengeRequest) bool {
 	if cr.HopLimit <= 1 {
 		cr.HopLimit = 0
@@ -244,29 +291,6 @@ func (f *FileHandler) prepareReplicationACK(ra *ReplicationACK) bool {
 
 	ra.HopLimit -= 1
 	return true
-}
-
-// Handle a timeout in the network
-func (f *FileHandler) HandleTimeout(hostName string) {
-	// Should not block
-	go func() {
-		// TODO Check if host was the owner of a file => download and claim file ?
-		// TODO Check if host was the replica of file we own => need to redistribute to other
-		//      and tell other replicas of the new replica name
-	}()
-}
-
-// Try to claim the file
-func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
-	// TODO Make sure we have the complete file
-
-	// TODO Send a transaction of OwnershipTransfert from previous owner to new owner
-	// TODO Wait a bit so the blockchain converges
-	// TODO See if we are the effective owner -> if not, quit the process
-	// TODO If there are no new owner (ie transactions were lost or something), repeat
-
-	// We are now the new owner
-	// TODO Start the OwnershipProcess
 }
 
 /******* FUNCTIONS TO USE WHEN WE ARE THE OWNER OF A FILE *******/
@@ -346,7 +370,6 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 				newHolders = append(newHolders, replica)
 			}
 			file.replicationData.holders = newHolders
-			// TODO Inform others that the holders have changed
 		}
 
 		replicationsNeeded := file.replicationData.factor - len(currentReplicas)
@@ -363,14 +386,13 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 		}
 
 		// TODO Distribute replication status (which replicas exist) ?
-		// Sleep or ticker to avoid excessive looping ?
+
+		// Sleep to avoid excessive looping
 		<-timeBetweenReplicationCheck.C
 	}
 }
 
 func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders *StringSet, resultChannel chan<- string) {
-	// TODO Find new replica that doesn't already host the file
-
 	req := &ReplicationRequest{
 		Source:   f.name,
 		FileHash: file.MetafileHash,
@@ -520,27 +542,4 @@ func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*Challeng
 	}
 
 	return request, f.AnswerChallenge(file, request)
-}
-
-// The challenge is essentially a verification to ensure the challengee has all chunks of the file
-func (f *FileHandler) AnswerChallenge(file *LocalFile, req *ChallengeRequest) (out SHA256_HASH) {
-	h := sha256.New()
-	// Write the headers
-	h.Write([]byte(req.Destination))
-	h.Write([]byte(req.Source))
-	h.Write(req.FileHash[:])
-	binary.Write(h, binary.LittleEndian, req.Challenge)
-
-	f.chunksLock.RLock()
-	for _, chunkHash := range MetaFileToHashes(file.metafile) {
-		chunk, present := f.chunks[chunkHash]
-		if !present {
-			return ZERO_SHA256_HASH
-		}
-		h.Write(chunk.Data)
-	}
-	f.chunksLock.RUnlock()
-
-	copy(out[:], h.Sum(nil))
-	return
 }
