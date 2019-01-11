@@ -20,6 +20,7 @@ type FailureHandler struct {
 	MaxDelay       int64
 	FileMap        map[SHA256_HASH][]string
 	FileMapLock    *sync.RWMutex
+	NodesDown      []string
 	Dispatch       *SimpleHandler
 	File           *FileHandler
 	Adresses       *RoutingHandler
@@ -35,6 +36,7 @@ func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addre
 		MaxDelay:       0,
 		FileMap:        make(map[SHA256_HASH][]string),
 		FileMapLock:    &sync.RWMutex{},
+		NodesDown:      make([]string, 0),
 		Dispatch:       net,
 		File:           file,
 		Adresses:       addresses,
@@ -129,6 +131,7 @@ func (b *FailureHandler) detectFailure(name string) {
 		if time.Now().Unix()-lastTime.TimeStamp < delay*2+420 {
 			time.Sleep(time.Second * 5)
 		} else {
+			b.NodesDown = append(b.NodesDown, name)
 			b.checkIfAHost(name)
 			break
 		}
