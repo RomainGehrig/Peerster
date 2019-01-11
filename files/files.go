@@ -664,3 +664,11 @@ func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH
 
 	return indexedFile, fileChunks, nil
 }
+
+func (f *FileHandler) ReplicatesFile(fileHash SHA256_HASH) bool {
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
+	file, present := f.files[fileHash]
+	return present && file.State == Replica
+}

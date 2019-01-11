@@ -4,7 +4,10 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/files"
 	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/simple"
 )
 
@@ -14,25 +17,27 @@ type FailureHandler struct {
 	NodesLock      *sync.RWMutex
 	NodesDelay     map[string]int64
 	NodesDelayLock *sync.RWMutex
-	Hosting        []string
 	MaxDelay       int64
-	FileMap        map[string]map[uint64][]string
+	FileMap        map[SHA256_HASH][]string
 	FileMapLock    *sync.RWMutex
 	Dispatch       *SimpleHandler
+	File           *FileHandler
+	Adresses       *RoutingHandler
 }
 
-func NewFailureHandler(name string, net *SimpleHandler) *FailureHandler {
+func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addresses *RoutingHandler) *FailureHandler {
 	return &FailureHandler{
 		Name:           name,
 		Nodes:          make(map[string]*OnlineMessage),
 		NodesLock:      &sync.RWMutex{},
 		NodesDelay:     make(map[string]int64),
 		NodesDelayLock: &sync.RWMutex{},
-		Hosting:        make([]string, 0),
 		MaxDelay:       0,
-		FileMap:        make(map[string]map[uint64][]string),
+		FileMap:        make(map[SHA256_HASH][]string),
 		FileMapLock:    &sync.RWMutex{},
 		Dispatch:       net,
+		File:           file,
+		Adresses:       addresses,
 	}
 }
 
@@ -45,9 +50,13 @@ func (b *FailureHandler) RunFailureHandler() {
 }
 
 func (b *FailureHandler) createOnlineMsg() *OnlineMessage {
+	filesInfo := b.File.SharedFiles()
+	filesOwned := make([]SHA256_HASH, 0)
+	for _, f := range filesInfo {
+		filesOwned = append(filesOwned, f.Hash)
+	}
 	return &OnlineMessage{Name: b.Name,
-		//TODO
-		//Hosting: the files that we host,
+		Hosting:   filesOwned,
 		TimeStamp: time.Now().Unix(),
 		HopLimit:  20}
 }
@@ -56,43 +65,28 @@ func (b *FailureHandler) HandleOnlineMessage(msg *OnlineMessage) {
 	b.updateTables(msg)
 }
 
-func (b *FailureHandler) HandleReqChunkList(msg *RequestChunkList) {
-	//TODO
-	//chunks = getChunksOfFile(msg.FileHash)
-	//sendBack(chunks, msg.HostName)
+func (b *FailureHandler) HandleRequestReplica(msg *RequestHasReplica) {
+	if b.File.ReplicatesFile(msg.FileHash) {
+		ans := AnswerReplicaFile{
+			Origin:   b.Name,
+			Dest:     msg.HostName,
+			FileHash: msg.FileHash,
+			HopLimit: 20,
+		}
+		b.Adresses.SendPacketTowards(&ans, msg.HostName)
+	}
 }
 
 //Fill the FileMap with the answer
-func (b *FailureHandler) HandleAnswer(msg *AnswerChunkList) {
+func (b *FailureHandler) HandleAnswer(msg *AnswerReplicaFile) {
 	b.FileMapLock.Lock()
 	defer b.FileMapLock.Unlock()
 
 	_, present := b.FileMap[msg.FileHash]
 	if !present {
-		b.FileMap[msg.FileHash] = make(map[uint64][]string)
+		b.FileMap[msg.FileHash] = make([]string, 0)
 	}
-	for _, chunkNumber := range msg.ChunkList {
-		list, present := b.FileMap[msg.FileHash][chunkNumber]
-		if present {
-			if alreadyView(list, msg.Origin) {
-				b.FileMap[msg.FileHash][chunkNumber] = append(list, msg.Origin)
-			}
-		} else {
-			singleList := make([]string, 1)
-			singleList[0] = msg.Origin
-			b.FileMap[msg.FileHash][chunkNumber] = append(singleList, msg.Origin)
-		}
-	}
-}
-
-func alreadyView(list []string, origin string) bool {
-	new := true
-	for _, name := range list {
-		if name == origin {
-			new = false
-		}
-	}
-	return new
+	b.FileMap[msg.FileHash] = append(b.FileMap[msg.FileHash], msg.Origin)
 }
 
 func (b *FailureHandler) updateTables(msg *OnlineMessage) {
@@ -131,30 +125,17 @@ func (b *FailureHandler) detectFailure(name string) {
 		if !present {
 			panic("the node disapeared from our table")
 		}
-		//the frequency of onlineMessage is 5 seconds so we can miss on message before considering the node is offline
+		//the frequency of onlineMessage is 5 seconds so we can miss one message before considering the node is offline
 		if time.Now().Unix()-lastTime.TimeStamp < delay*2+420 {
 			time.Sleep(time.Second * 5)
 		} else {
-			b.checkIfHosting(name)
-			b.checkIfItHost(name)
+			b.checkIfAHost(name)
 			break
 		}
 	}
 }
 
-func (b *FailureHandler) checkIfHosting(name string) {
-	/*for file := range filehosted {
-		for chunks := range file.chunkmap {
-			for node := range chunks {
-				if node == name {
-					redistributedChunk(chunk)
-				}
-			}
-		}
-	}*/
-}
-
-func (b *FailureHandler) checkIfItHost(name string) {
+func (b *FailureHandler) checkIfAHost(name string) {
 	b.NodesLock.RLock()
 	defer b.NodesLock.RUnlock()
 
@@ -164,12 +145,14 @@ func (b *FailureHandler) checkIfItHost(name string) {
 	}
 	if len(node.Hosting) > 0 {
 		for _, file := range node.Hosting {
-			go b.becomeTheHost(file)
+			if b.File.ReplicatesFile(file) {
+				go b.becomeTheHost(file)
+			}
 		}
 	}
 }
 
-func (b *FailureHandler) becomeTheHost(hash string) {
+func (b *FailureHandler) becomeTheHost(hash SHA256_HASH) {
 	/*dl the file
 	if finished {
 		put it in the blockchain
@@ -179,10 +162,9 @@ func (b *FailureHandler) becomeTheHost(hash string) {
 	}*/
 }
 
-func (b *FailureHandler) hostingSetup(hash string) {
-	b.Hosting = append(b.Hosting, hash)
+func (b *FailureHandler) hostingSetup(hash SHA256_HASH) {
 
-	req := RequestChunkList{HostName: b.Name,
+	req := RequestHasReplica{HostName: b.Name,
 		FileHash: hash,
 		HopLimit: 20,
 	}
@@ -190,10 +172,8 @@ func (b *FailureHandler) hostingSetup(hash string) {
 	b.Dispatch.BroadcastMessage(&req, nil)
 
 	time.Sleep(3 * time.Second * time.Duration(b.MaxDelay))
-	b.createMap(hash)
-}
-
-func (b *FailureHandler) createMap(hash string) {
-	//use FileMap to create a new map chunk-user
-	//check redundancy and distributed missing chunk
+	b.File.ChangeOwnership(hash)
+	//Initialize
+	//Change holders
+	//go
 }

@@ -32,6 +32,10 @@ type BlockchainHandler struct {
 	blocksLock        *sync.RWMutex
 	mapping           map[string]SHA256_HASH
 	mappingLock       *sync.RWMutex
+	owner             map[string]string
+	ownerLock         *sync.RWMutex
+	ownerId           map[string]uint64
+	ownerIdLock       *sync.RWMutex
 	pendingTx         map[string]*TxPublish
 	pendingTxLock     *sync.RWMutex
 	lastBlockHash     SHA256_HASH
@@ -47,6 +51,10 @@ func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 		blocksLock:        &sync.RWMutex{},
 		mapping:           make(map[string]SHA256_HASH),
 		mappingLock:       &sync.RWMutex{},
+		owner:             make(map[string]string),
+		ownerLock:         &sync.RWMutex{},
+		ownerId:           make(map[string]uint64),
+		ownerIdLock:       &sync.RWMutex{},
 		lastBlockHash:     ZERO_SHA256_HASH,
 		reputationHandler: rep,
 	}

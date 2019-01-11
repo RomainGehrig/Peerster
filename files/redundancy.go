@@ -4,13 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const DEFAULT_REPLICATION_FACTOR = 3
@@ -542,4 +543,14 @@ func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*Challeng
 	}
 
 	return request, f.AnswerChallenge(file, request)
+}
+
+func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
+	_, present := f.files[hash]
+	if present {
+		f.files[hash].State = Owned
+	}
 }
