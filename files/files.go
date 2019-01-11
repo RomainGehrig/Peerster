@@ -87,29 +87,31 @@ type SearchedFile struct {
 }
 
 type FileHandler struct {
-	files                  map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
-	filesLock              *sync.RWMutex
-	chunks                 map[SHA256_HASH]*FileChunk
-	chunksLock             *sync.RWMutex
-	searchedFiles          map[SHA256_HASH]*SearchedFile
-	searchedLock           *sync.RWMutex
-	replicationReplies     map[SHA256_HASH]([]string) // Store replies here before choosing
-	replicationRepliesLock *sync.RWMutex
-	seenRequests           []SeenRequest
-	queries                []*Query
-	sharedDir              string
-	downloadDir            string
-	name                   string
-	downloadWorkers        uint
-	downloadChannel        chan<- *DownloadRequest
-	routing                *RoutingHandler
-	peers                  *PeersHandler
-	net                    *NetworkHandler
-	blockchain             *BlockchainHandler
-	dataDispatcher         *DataReplyDispatcher
-	srepDispatcher         *SearchReplyDispatcher
-	reputationhandler      *ReputationHandler
-	simple                 *SimpleHandler
+	files                   map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
+	filesLock               *sync.RWMutex
+	chunks                  map[SHA256_HASH]*FileChunk
+	chunksLock              *sync.RWMutex
+	searchedFiles           map[SHA256_HASH]*SearchedFile
+	searchedLock            *sync.RWMutex
+	replicationReplies      map[SHA256_HASH]([]string) // Store replies here before choosing
+	replicationRepliesLock  *sync.RWMutex
+	fileMapConstruction     map[SHA256_HASH][]string
+	fileMapConstructionLock *sync.RWMutex
+	seenRequests            []SeenRequest
+	queries                 []*Query
+	sharedDir               string
+	downloadDir             string
+	name                    string
+	downloadWorkers         uint
+	downloadChannel         chan<- *DownloadRequest
+	routing                 *RoutingHandler
+	peers                   *PeersHandler
+	net                     *NetworkHandler
+	blockchain              *BlockchainHandler
+	dataDispatcher          *DataReplyDispatcher
+	srepDispatcher          *SearchReplyDispatcher
+	reputationhandler       *ReputationHandler
+	simple                  *SimpleHandler
 }
 
 func createDirIfNotExist(abspath string) error {
@@ -148,21 +150,23 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 	}
 
 	return &FileHandler{
-		files:                  make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
-		filesLock:              &sync.RWMutex{},
-		chunks:                 make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
-		chunksLock:             &sync.RWMutex{},
-		searchedFiles:          make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
-		searchedLock:           &sync.RWMutex{},
-		replicationReplies:     make(map[SHA256_HASH]([]string)),
-		replicationRepliesLock: &sync.RWMutex{},
-		seenRequests:           make([]SeenRequest, 0),
-		queries:                make([]*Query, 0),
-		sharedDir:              sharedDir,
-		downloadDir:            downloadDir,
-		downloadWorkers:        downloadWorkers,
-		name:                   name,
-		reputationhandler:      r,
+		files:                   make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
+		filesLock:               &sync.RWMutex{},
+		chunks:                  make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
+		chunksLock:              &sync.RWMutex{},
+		searchedFiles:           make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
+		searchedLock:            &sync.RWMutex{},
+		replicationReplies:      make(map[SHA256_HASH]([]string)),
+		replicationRepliesLock:  &sync.RWMutex{},
+		fileMapConstruction:     make(map[SHA256_HASH][]string),
+		fileMapConstructionLock: &sync.RWMutex{},
+		seenRequests:            make([]SeenRequest, 0),
+		queries:                 make([]*Query, 0),
+		sharedDir:               sharedDir,
+		downloadDir:             downloadDir,
+		downloadWorkers:         downloadWorkers,
+		name:                    name,
+		reputationhandler:       r,
 	}
 }
 
@@ -661,4 +665,12 @@ func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH
 	indexedFile.chunkCount = uint64(len(fileChunks))
 
 	return indexedFile, fileChunks, nil
+}
+
+func (f *FileHandler) ReplicatesFile(fileHash SHA256_HASH) bool {
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
+	file, present := f.files[fileHash]
+	return present && file.State == Replica
 }

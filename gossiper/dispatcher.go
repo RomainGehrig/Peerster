@@ -94,10 +94,10 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.blockchain.HandleBlockPublish(packet.BlockPublish)
 	case packet.OnlineMessage != nil:
 		g.failure.HandleOnlineMessage(packet.OnlineMessage)
-	case packet.RequestChunkList != nil:
-		g.failure.HandleReqChunkList(packet.RequestChunkList)
-	case packet.AnswerChunkList != nil:
-		g.failure.HandleAnswer(packet.AnswerChunkList)
+	case packet.RequestHasReplica != nil:
+		g.files.HandleRequestReplica(packet.RequestHasReplica)
+	case packet.AnswerReplicaFile != nil:
+		g.failure.HandleAnswer(packet.AnswerReplicaFile)
 	case packet.ReplicationRequest != nil:
 		g.files.HandleReplicationRequest(packet.ReplicationRequest)
 	case packet.ReplicationReply != nil:

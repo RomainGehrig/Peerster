@@ -4,13 +4,14 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const DEFAULT_REPLICATION_FACTOR = 3
@@ -57,29 +58,6 @@ func (lf *LocalFile) InitializeReplicationData() {
 	}
 	// TODO Init we switch from replica to owner
 	// TODO Init we become a replica (from Downloaded state)
-}
-
-// Handle a timeout in the network
-func (f *FileHandler) HandleTimeout(hostName string) {
-	// Should not block
-	go func() {
-		// TODO Check if host was the owner of a file => download and claim file ?
-		// TODO Check if host was the replica of file we own => need to redistribute to other
-		//      and tell other replicas of the new replica name
-	}()
-}
-
-// Try to claim the file
-func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
-	// TODO Make sure we have the complete file
-
-	// TODO Send a transaction of OwnershipTransfert from previous owner to new owner
-	// TODO Wait a bit so the blockchain converges
-	// TODO See if we are the effective owner -> if not, quit the process
-	// TODO If there are no new owner (ie transactions were lost or something), repeat
-
-	// We are now the new owner
-	// TODO Start the OwnershipProcess
 }
 
 func (f *FileHandler) HandleChallengeRequest(cr *ChallengeRequest) {
@@ -542,4 +520,58 @@ func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*Challeng
 	}
 
 	return request, f.AnswerChallenge(file, request)
+}
+
+func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
+	_, present := f.files[hash]
+	if present {
+		f.files[hash].State = Owned
+	}
+}
+
+func (f *FileHandler) BecomeTheHost(hash SHA256_HASH) {
+	/*
+		put it in the blockchain
+		if published and we are the new host {
+			hostingSetup(hash)
+		}*/
+}
+
+func (f *FileHandler) hostingSetup(hash SHA256_HASH, maxDelay int64) {
+
+	req := RequestHasReplica{HostName: f.name,
+		FileHash: hash,
+		HopLimit: 20,
+	}
+
+	f.simple.BroadcastMessage(&req, nil)
+
+	time.Sleep(3 * time.Second * time.Duration(maxDelay))
+	f.ChangeOwnership(hash)
+	file, present := f.files[hash]
+	if present {
+		file.InitializeReplicationData()
+		f.fileMapConstructionLock.RLock()
+		defer f.fileMapConstructionLock.RUnlock()
+		replicates, present := f.fileMapConstruction[hash]
+		if present {
+			file.replicationData.holders = replicates
+		}
+		go f.RunOwnedFileProcess(file)
+	}
+}
+
+//Fill the FileMapConstruction with the answer
+func (f *FileHandler) HandleAnswer(msg *AnswerReplicaFile) {
+	f.fileMapConstructionLock.Lock()
+	defer f.fileMapConstructionLock.Unlock()
+
+	_, present := f.fileMapConstruction[msg.FileHash]
+	if !present {
+		f.fileMapConstruction[msg.FileHash] = make([]string, 0)
+	}
+	f.fileMapConstruction[msg.FileHash] = append(f.fileMapConstruction[msg.FileHash], msg.Origin)
 }
