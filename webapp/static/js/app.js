@@ -162,6 +162,13 @@ function sortFiles(files) {
 
     files.sort((a, b) => compareStrings(a['filename'], b['filename']));
 
+    for (file of files) {
+        if (file.replicas == null) {
+            file.replicas = [];
+        }
+        file.replicas.sort();
+    }
+
     return files;
 }
 
