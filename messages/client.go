@@ -38,9 +38,12 @@ type Node struct {
 
 // Files
 type FileInfo struct {
-	Filename string      `json:"filename"`
-	Hash     SHA256_HASH `json:"hash"`
-	Size     int64       `json:"size"` // In bytes
+	Filename          string      `json:"filename"`
+	Hash              SHA256_HASH `json:"hash"`
+	Size              int64       `json:"size"` // In bytes
+	IsOwner           bool        `json:"isOwner"`
+	ReplicaNames      []string    `json:"replicas"`
+	ReplicationFactor int         `json:"replicationFactor"`
 }
 
 type FileIndex struct {
