@@ -3,12 +3,12 @@ package reputation
 import (
 	"sync"
 
+	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 )
 
 // Constants to use when modifying the reputation a peer
 const (
-	INDEX    = 5
 	DOWNLOAD = 2
 	SERVE    = 4
 	FAIL     = 10
@@ -19,6 +19,7 @@ func NewReputationHandler() *ReputationHandler {
 	return &ReputationHandler{
 		AllReputations: make(map[string]int64),
 		lock:           &sync.RWMutex{},
+		id:             uint64(0),
 	}
 }
 
@@ -26,6 +27,7 @@ func NewReputationHandler() *ReputationHandler {
 type ReputationHandler struct {
 	AllReputations map[string]int64
 	lock           *sync.RWMutex
+	id             uint64
 }
 
 func (r *ReputationHandler) CanDownloadChunk(nodename string) bool {
@@ -63,12 +65,6 @@ func (r *ReputationHandler) AffectTransaction(transaction TxPublish, reversed bo
 	if reversed {
 		coef = int64(-1)
 	}
-	// Case of a new chunk being indexed
-	if transaction.Type == IndexChunk {
-		indexer := transaction.NodeOrigin
-		r.IncreaseOrCreate(indexer, coef*INDEX)
-	}
-
 	// A chunk was downloaded successfully
 	if transaction.Type == DownloadSuccess {
 		downloader := transaction.NodeOrigin
@@ -99,6 +95,32 @@ func (r *ReputationHandler) UndoBlock(block Block) {
 }
 
 func (r *ReputationHandler) CreateTimeoutTransaction(fname, localnodename, peername string) *TxPublish {
-	return &TxPublish{Type: DownloadFail, NodeOrigin: localnodename, NodeDestination: peername,
-		File: File{Name: fname, Size: 0, MetafileHash: []byte{}}}
+	t := &TxPublish{
+		Type:            DownloadFail,
+		NodeOrigin:      localnodename,
+		NodeDestination: peername,
+		File: File{
+			Name:         fname,
+			Size:         0,
+			MetafileHash: []byte{},
+		},
+		HopLimit: DEFAULT_HOP_LIMIT,
+		ID:       r.id,
+	}
+	r.id += 1
+	return t
+}
+
+func (r *ReputationHandler) CreateDownloadSuccessTransaction(origin, dest string) *TxPublish {
+	t := &TxPublish{
+		Type:            DownloadSuccess,
+		File:            File{},
+		NodeOrigin:      origin,
+		NodeDestination: dest,
+		TargetHash:      []byte{},
+		HopLimit:        DEFAULT_HOP_LIMIT,
+		ID:              r.id,
+	}
+	r.id += 1
+	return t
 }
