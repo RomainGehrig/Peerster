@@ -8,6 +8,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 )
@@ -301,7 +302,7 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 		// Here we need to
 		// 1) check that our current replica holders are still alive
 		// 2) find new replica holders if we don't have enough
-		fmt.Printf("Owned File: %x (currently having %d replicas)\n", file.MetafileHash, len(currentReplicas))
+		fmt.Printf("Owned File: %x currently has %d/%d replicas: %s\n", file.MetafileHash, len(currentReplicas), file.replicationData.factor, strings.Join(file.replicationData.holders, ", "))
 		updateHoldersList := false
 
 		// Check replicas state
