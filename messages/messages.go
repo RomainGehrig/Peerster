@@ -4,8 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
 	"strings"
+
+	. "github.com/RomainGehrig/Peerster/constants"
 )
 
 ///// Internode messages
@@ -88,6 +89,7 @@ type TxPublish struct {
 	NodeDestination string // From whom the file was downloaded
 	TargetHash      []byte // Target of the transaction
 	HopLimit        uint32
+	ID              uint64
 }
 
 type BlockPublish struct {
