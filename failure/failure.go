@@ -18,8 +18,6 @@ type FailureHandler struct {
 	NodesDelay     map[string]int64
 	NodesDelayLock *sync.RWMutex
 	MaxDelay       int64
-	FileMap        map[SHA256_HASH][]string
-	FileMapLock    *sync.RWMutex
 	NodesDown      []string
 	Dispatch       *SimpleHandler
 	File           *FileHandler
@@ -34,8 +32,6 @@ func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addre
 		NodesDelay:     make(map[string]int64),
 		NodesDelayLock: &sync.RWMutex{},
 		MaxDelay:       0,
-		FileMap:        make(map[SHA256_HASH][]string),
-		FileMapLock:    &sync.RWMutex{},
 		NodesDown:      make([]string, 0),
 		Dispatch:       net,
 		File:           file,
@@ -79,18 +75,6 @@ func (b *FailureHandler) HandleRequestReplica(msg *RequestHasReplica) {
 	}
 }
 
-//Fill the FileMap with the answer
-func (b *FailureHandler) HandleAnswer(msg *AnswerReplicaFile) {
-	b.FileMapLock.Lock()
-	defer b.FileMapLock.Unlock()
-
-	_, present := b.FileMap[msg.FileHash]
-	if !present {
-		b.FileMap[msg.FileHash] = make([]string, 0)
-	}
-	b.FileMap[msg.FileHash] = append(b.FileMap[msg.FileHash], msg.Origin)
-}
-
 func (b *FailureHandler) updateTables(msg *OnlineMessage) {
 	b.NodesLock.Lock()
 	defer b.NodesLock.Unlock()
@@ -114,10 +98,8 @@ func (b *FailureHandler) updateTables(msg *OnlineMessage) {
 func (b *FailureHandler) detectFailure(name string) {
 	for {
 		b.NodesLock.RLock()
-		defer b.NodesLock.RUnlock()
 
 		b.NodesDelayLock.RLock()
-		defer b.NodesDelayLock.RUnlock()
 
 		lastTime, present := b.Nodes[name]
 		if !present {
@@ -127,6 +109,8 @@ func (b *FailureHandler) detectFailure(name string) {
 		if !present {
 			panic("the node disapeared from our table")
 		}
+		b.NodesLock.RUnlock()
+		b.NodesDelayLock.RUnlock()
 		//the frequency of onlineMessage is 5 seconds so we can miss one message before considering the node is offline
 		if time.Now().Unix()-lastTime.TimeStamp < delay*2+420 {
 			time.Sleep(time.Second * 5)
@@ -149,34 +133,8 @@ func (b *FailureHandler) checkIfAHost(name string) {
 	if len(node.Hosting) > 0 {
 		for _, file := range node.Hosting {
 			if b.File.ReplicatesFile(file) {
-				go b.becomeTheHost(file)
+				go b.File.BecomeTheHost(file)
 			}
 		}
 	}
-}
-
-func (b *FailureHandler) becomeTheHost(hash SHA256_HASH) {
-	/*dl the file
-	if finished {
-		put it in the blockchain
-	}
-	if published and we are the new host {
-		hostingSetup(hash)
-	}*/
-}
-
-func (b *FailureHandler) hostingSetup(hash SHA256_HASH) {
-
-	req := RequestHasReplica{HostName: b.Name,
-		FileHash: hash,
-		HopLimit: 20,
-	}
-
-	b.Dispatch.BroadcastMessage(&req, nil)
-
-	time.Sleep(3 * time.Second * time.Duration(b.MaxDelay))
-	b.File.ChangeOwnership(hash)
-	//Initialize
-	//Change holders
-	//go
 }
