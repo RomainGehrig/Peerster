@@ -579,6 +579,9 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	f.files[indexed.MetafileHash] = indexed
 	f.filesLock.Unlock()
 
+	// Make sure the file is replicated
+	go f.RunOwnedFileProcess(indexed)
+
 	// Claim the file's name on the blockchain
 	bFile := &File{
 		Name:         indexed.Name,
