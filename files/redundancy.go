@@ -14,9 +14,9 @@ import (
 )
 
 const DEFAULT_REPLICATION_FACTOR = 3
-const DELAY_BETWEEN_REPLICA_CHECKS = 10 * time.Second
 const DELAY_BETWEEN_REPLICA_SEARCHES = 3 * time.Second
-const DELAY_BETWEEN_REPLICATION_CHECKS = 1 * time.Second
+const DELAY_BETWEEN_REPLICATION_CHECKS = 1 * time.Second // Overall checks
+const DELAY_BETWEEN_REPLICA_CHECKS = 10 * time.Second    // Per replica check
 const CHALLENGE_TIMEOUT = 5 * time.Second
 const DELAY_BETWEEN_CHALLENGE_STATUS_CHECKS = 100 * time.Millisecond
 const WAIT_FOR_REPLICATION_REPLIES = 1 * time.Second
