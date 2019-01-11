@@ -294,6 +294,7 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 }
 
 func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
+	f.filesLock.Lock()
 	if metafile, present := f.files[metafileHash]; present && metafile.State.HaveSomeChunks() {
 		fmt.Printf("File is either downloading or already downloaded: won't restart download. Hash: %x \n", metafileHash)
 		return
@@ -306,7 +307,6 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 		State:        DownloadingMetafile,
 	}
 
-	f.filesLock.Lock()
 	f.files[metafileHash] = file
 	f.filesLock.Unlock()
 
