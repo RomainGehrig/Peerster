@@ -75,6 +75,8 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 
 func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 	// Should not block
+	fmt.Println("Received a transaction")
+	fmt.Println(tx)
 
 	go func() {
 		if !b.isTXValid(tx) {
@@ -207,9 +209,6 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 	// If we grow the current chain
 	if b.lastBlockHash == newBlk.PrevHash || !initialized {
 
-		// Impact on the reputation
-		b.reputationHandler.AcceptNewBlock(*newBlk)
-
 		b.lastBlockHash = blkHash
 		b.applyBlockTx(newBlk)
 		if PRINT_CHAIN_OPS {
@@ -228,15 +227,9 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 		rewind, apply := b.blockRewind(currBlkAug, newBlkAug)
 		for _, rewBlk := range rewind {
 			b.unapplyBlockTx(rewBlk)
-
-			// Impact on reputation
-			b.reputationHandler.UndoBlock(*rewBlk)
 		}
 		for _, appBlk := range apply {
 			b.applyBlockTx(appBlk)
-
-			// Impact on reputation
-			b.reputationHandler.AcceptNewBlock(*appBlk)
 		}
 		b.lastBlockHash = blkHash
 		if PRINT_CHAIN_OPS {
@@ -312,6 +305,9 @@ func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmente
 
 // Be sure to have all the needed locks to apply the transactions
 func (b *BlockchainHandler) applyBlockTx(blk *Block) {
+	// Impact on the reputation
+	b.reputationHandler.AcceptNewBlock(*blk)
+
 	for _, newTx := range blk.Transactions {
 		file := newTx.File
 		fileHash, _ := ToHash(file.MetafileHash)
@@ -326,6 +322,9 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 
 // Be sure to have all the needed locks to apply the transactions
 func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
+	// Impact on reputation
+	b.reputationHandler.UndoBlock(*blk)
+
 	for _, oldTx := range blk.Transactions {
 		file := oldTx.File
 		delete(b.mapping, file.Name)
