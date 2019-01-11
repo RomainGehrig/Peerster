@@ -92,6 +92,16 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.blockchain.HandleTxPublish(packet.TxPublish)
 	case packet.BlockPublish != nil:
 		g.blockchain.HandleBlockPublish(packet.BlockPublish)
+	case packet.ReplicationRequest != nil:
+		g.files.HandleReplicationRequest(packet.ReplicationRequest)
+	case packet.ReplicationReply != nil:
+		g.files.HandleReplicationReply(packet.ReplicationReply)
+	case packet.ReplicationACK != nil:
+		g.files.HandleReplicationACK(packet.ReplicationACK)
+	case packet.ChallengeRequest != nil:
+		g.files.HandleChallengeRequest(packet.ChallengeRequest)
+	case packet.ChallengeReply != nil:
+		g.files.HandleChallengeReply(packet.ChallengeReply)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
 	"sync"
@@ -59,11 +58,97 @@ func (lf *LocalFile) InitializeReplicationData() {
 	// TODO Init we become a replica (from Downloaded state)
 }
 
+func (f *FileHandler) HandleChallengeRequest(cr *ChallengeRequest) {
+	go func() {
+		if cr.Destination != f.name {
+			if f.prepareChallengeRequest(cr) {
+				f.routing.SendPacketTowards(cr, cr.Destination)
+			}
+		} else {
+			f.filesLock.RLock()
+			file, present := f.files[cr.FileHash]
+			f.filesLock.RUnlock()
+
+			if !present || !file.State.HaveWholeFile() {
+				return
+			}
+
+			answer := f.AnswerChallenge(file, cr)
+			reply := &ChallengeReply{
+				Destination: cr.Source,
+				Source:      f.name,
+				FileHash:    cr.FileHash,
+				Result:      answer,
+				HopLimit:    DEFAULT_HOP_LIMIT,
+			}
+
+			f.routing.SendPacketTowards(reply, cr.Source)
+		}
+	}()
+}
+
+func (f *FileHandler) HandleChallengeReply(cr *ChallengeReply) {
+	go func() {
+		if cr.Destination != f.name {
+			if f.prepareChallengeReply(cr) {
+				f.routing.SendPacketTowards(cr, cr.Destination)
+			}
+		} else {
+			// Process challenge reply
+			f.filesLock.RLock()
+			file, present := f.files[cr.FileHash]
+			f.filesLock.RUnlock()
+
+			if !present || file.State != Owned {
+				return
+			}
+
+			replicaName := cr.Source
+
+			// Check challenge
+			file.replicationData.challengesLock.RLock()
+			challenge, present := file.replicationData.challenges[replicaName]
+			file.replicationData.challengesLock.RUnlock()
+
+			// If the challenge already had an anwer or timed out, we won't change its state
+			if challenge.ChallengeStatus != Waiting {
+				return
+			}
+
+			if challenge.ExpectedResult == cr.Result {
+				challenge.ChallengeStatus = CorrectlyAnswered
+			} else {
+				challenge.ChallengeStatus = IncorrectlyAnswered
+			}
+		}
+
+	}()
+}
+
 func (f *FileHandler) HandleReplicationRequest(rr *ReplicationRequest) {
 	// Should not block
 	go func() {
+		// Forward request
+		if f.prepareReplicationRequest(rr) {
+			f.simple.BroadcastMessage(rr, nil)
+		}
+
 		// TODO Send a ReplicationReply if we are interesting in hosting the file
 		// because we have it or if we have space for it or other arbitrary criteria
+
+		// TODO For the moment, an arbitrary (but consistent) decision to choose
+		// if we want to keep the file
+		// if (rr.FileHash[0]+f.name[len(f.name)-1])%2 == 0 {
+		if true {
+			rep := &ReplicationReply{
+				Source:      f.name,
+				Destination: rr.Source,
+				FileHash:    rr.FileHash,
+				HopLimit:    DEFAULT_HOP_LIMIT,
+			}
+
+			f.routing.SendPacketTowards(rep, rr.Source)
+		}
 	}()
 }
 
@@ -75,7 +160,17 @@ func (f *FileHandler) HandleReplicationReply(rr *ReplicationReply) {
 				f.routing.SendPacketTowards(rr, rr.Destination)
 			}
 		} else {
-			// TODO Add the reply to the list of interested nodes for this particular file
+			// Add the reply to the list of interested nodes for this particular file
+			f.replicationRepliesLock.Lock()
+			defer f.replicationRepliesLock.Unlock()
+
+			lst, present := f.replicationReplies[rr.FileHash]
+			// Should not happen
+			if !present || lst == nil {
+				return
+			}
+
+			f.replicationReplies[rr.FileHash] = append(lst, rr.Source)
 		}
 	}()
 }
@@ -99,6 +194,27 @@ func (f *FileHandler) HandleReplicationACK(ra *ReplicationACK) {
 		}
 	}()
 }
+
+func (f *FileHandler) prepareChallengeRequest(cr *ChallengeRequest) bool {
+	if cr.HopLimit <= 1 {
+		cr.HopLimit = 0
+		return false
+	}
+
+	cr.HopLimit -= 1
+	return true
+}
+
+func (f *FileHandler) prepareChallengeReply(cr *ChallengeReply) bool {
+	if cr.HopLimit <= 1 {
+		cr.HopLimit = 0
+		return false
+	}
+
+	cr.HopLimit -= 1
+	return true
+}
+
 func (f *FileHandler) prepareReplicationRequest(rr *ReplicationRequest) bool {
 	if rr.HopLimit <= 1 {
 		rr.HopLimit = 0
@@ -185,7 +301,7 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 		// Here we need to
 		// 1) check that our current replica holders are still alive
 		// 2) find new replica holders if we don't have enough
-
+		fmt.Printf("Owned File: %x (currently having %d replicas)\n", file.MetafileHash, len(currentReplicas))
 		updateHoldersList := false
 
 		// Check replicas state
@@ -205,6 +321,11 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 		for {
 			select {
 			case replicaName := <-newReplicasChannel:
+				// Don't add a replica already there
+				if _, present := currentReplicas[replicaName]; present {
+					break
+				}
+
 				// TODO Share code between the first init and this one
 				replicaChannel := make(chan bool)
 				currentReplicas[replicaName] = replicaChannel
@@ -236,7 +357,7 @@ func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 				f.FindNewReplicas(replicationsNeeded, file, StringSetInit(file.replicationData.holders), newReplicasChannel)
 				timeBetweenReplicaSearch.Reset(DELAY_BETWEEN_REPLICA_SEARCHES)
 			default:
-				fmt.Println("Too early to do a new search")
+				fmt.Printf("Too early to do a new search for file %x\n", file.MetafileHash)
 			}
 		}
 
@@ -272,8 +393,14 @@ func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders
 
 	// Select `count` of them and ACK
 	f.replicationRepliesLock.Lock()
-	for i, replySource := range f.replicationReplies[fileHash] {
-		if i >= count {
+	repliesSet := StringSetInit(f.replicationReplies[fileHash])
+	for _, replySource := range repliesSet.ToSlice() {
+		// Don't add owner or current replica
+		if replySource == f.name || currentHolders.Has(replySource) {
+			continue
+		}
+
+		if len(potentialReplicas) >= count {
 			break
 		}
 
@@ -285,7 +412,7 @@ func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders
 			FileHash:    fileHash,
 			HopLimit:    DEFAULT_HOP_LIMIT,
 		}
-		f.net.SendGossipPacket(ack, StringAddress{replySource})
+		f.routing.SendPacketTowards(ack, replySource)
 	}
 	delete(f.replicationReplies, fileHash)
 	f.replicationRepliesLock.Unlock()
@@ -357,6 +484,9 @@ func (f *FileHandler) ChallengeReplica(replicaName string, file *LocalFile, clea
 		}()
 	}
 
+	// Send the request
+	f.routing.SendPacketTowards(req, replicaName)
+
 	timer := time.NewTimer(CHALLENGE_TIMEOUT)
 	defer timer.Stop()
 
@@ -388,26 +518,17 @@ func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*Challeng
 		HopLimit:    DEFAULT_HOP_LIMIT,
 	}
 
-	return request, f.AnswerChallenge(request)
+	return request, f.AnswerChallenge(file, request)
 }
 
 // The challenge is essentially a verification to ensure the challengee has all chunks of the file
-func (f *FileHandler) AnswerChallenge(req *ChallengeRequest) (out SHA256_HASH) {
+func (f *FileHandler) AnswerChallenge(file *LocalFile, req *ChallengeRequest) (out SHA256_HASH) {
 	h := sha256.New()
 	// Write the headers
 	h.Write([]byte(req.Destination))
 	h.Write([]byte(req.Source))
 	h.Write(req.FileHash[:])
 	binary.Write(h, binary.LittleEndian, req.Challenge)
-
-	f.filesLock.RLock()
-	file, present := f.files[req.FileHash]
-	f.filesLock.RUnlock()
-
-	if !present {
-		fmt.Printf("We don't have the file we are challenged for ! FileHash: %x\n", req.FileHash)
-		return ZERO_SHA256_HASH
-	}
 
 	f.chunksLock.RLock()
 	for _, chunkHash := range MetaFileToHashes(file.metafile) {

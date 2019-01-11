@@ -310,6 +310,14 @@ func (b *BlockPublish) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{BlockPublish: b}
 }
 
+func (cr *ChallengeRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ChallengeRequest: cr}
+}
+
+func (cr *ChallengeReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ChallengeReply: cr}
+}
+
 func (rr *ReplicationRequest) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{ReplicationRequest: rr}
 }
