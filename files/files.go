@@ -205,19 +205,10 @@ func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 
 		// Impact on the reputation, must add a TxPublish to the blockchain
 		// First create the new TxPublish to be "mined"
-		filename := fmt.Sprintf("%x", dataRep.Data)
-		transaction := TxPublish{
-			Type: DownloadSuccess,
-			File: File{Name: filename,
-				Size:         0,
-				MetafileHash: []byte{}},
-			NodeOrigin:      dataRep.Destination,
-			NodeDestination: dataRep.Origin,
-			TargetHash:      dataRep.Data,
-			HopLimit:        10,
-		}
+		transaction := f.reputationhandler.CreateDownloadSuccessTransaction(dataRep.Origin, dataRep.Destination)
+
 		// Handle the transaction in the blockchain
-		go f.blockchain.HandleTxPublish(&transaction)
+		go f.blockchain.HandleTxPublish(transaction)
 
 		go func() {
 			f.dataDispatcher.dataReplyChan <- dataRep

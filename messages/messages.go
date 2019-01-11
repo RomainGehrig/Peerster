@@ -75,7 +75,6 @@ type TransactionType int
 
 const (
 	Other TransactionType = iota
-	IndexChunk
 	DownloadSuccess
 	DownloadFail
 	NewMaster
