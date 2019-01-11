@@ -533,11 +533,27 @@ func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
 }
 
 func (f *FileHandler) BecomeTheHost(hash SHA256_HASH) {
+	f.blockchain.OwnerIDLock.RLock()
+	defer f.blockchain.OwnerIDLock.RUnlock()
+	id, present := f.blockchain.OwnerID[hash]
+	if present {
+		id = id + 1
+	} else {
+		id = uint64(0)
+	}
+	tx := TxPublish{
+		Type:       NewMaster,
+		NodeOrigin: f.name,
+		//TargetHash: hash,
+		HopLimit: 20,
+		ID:       id,
+	}
+	f.blockchain.HandleTxPublish(&tx)
 	/*
 		put it in the blockchain
 		if published and we are the new host {
 			hostingSetup(hash)
-		}*/
+	}*/
 }
 
 func (f *FileHandler) hostingSetup(hash SHA256_HASH, maxDelay int64) {

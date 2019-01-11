@@ -95,9 +95,9 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 	case packet.OnlineMessage != nil:
 		g.failure.HandleOnlineMessage(packet.OnlineMessage)
 	case packet.RequestHasReplica != nil:
-		g.files.HandleRequestReplica(packet.RequestHasReplica)
+		g.failure.HandleRequestReplica(packet.RequestHasReplica)
 	case packet.AnswerReplicaFile != nil:
-		g.failure.HandleAnswer(packet.AnswerReplicaFile)
+		g.files.HandleAnswer(packet.AnswerReplicaFile)
 	case packet.ReplicationRequest != nil:
 		g.files.HandleReplicationRequest(packet.ReplicationRequest)
 	case packet.ReplicationReply != nil:
