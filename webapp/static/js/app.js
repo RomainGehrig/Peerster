@@ -395,3 +395,40 @@ async function jsonGet(endpoint) {
 async function jsonPost(endpoint, jsonData) {
     return jsonQuery("POST", endpoint, jsonData);
 }
+
+
+
+// Reputation part
+
+var orderedReputation = [];
+var reputationMap = {}
+
+function fetchReputations() {
+    var xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function () {
+        if (this.readyState == 4 && this.status == 200) {
+            var name = this.responseText;
+            var myArr = JSON.parse(name);
+            for (var key in myArr){
+                if (!(key in reputationMap)){
+                    orderedReputation.push(key);
+                }
+                reputationMap[key] = myArr[key]
+            }
+            refreshDisplay();
+        }
+    };
+    xhttp.open("GET", "reputations", true);
+    xhttp.send();
+}
+
+function refreshDisplay(){
+    elemHtml = document.getElementById("interior");
+    fullstr = "";
+    for (var i = 0 ; i < orderedReputation.length; i++){
+        var elem = orderedReputation[i];
+        fullstr += "<li>" + elem + " : " + reputationMap[elem] + "</li>";
+    }
+    elemHtml.innerHTML = fullstr;
+}
+var intervalIDPeerFetch = setInterval(function () { fetchReputations(); }, 1000);

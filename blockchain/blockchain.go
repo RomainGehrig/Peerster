@@ -2,16 +2,19 @@ package blockchain
 
 import (
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/simple"
-	. "github.com/RomainGehrig/Peerster/utils"
 	"strings"
 	"sync"
+
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/reputation"
+	. "github.com/RomainGehrig/Peerster/simple"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const TX_PUBLISH_HOP_LIMIT = 10
 const BLOCK_PUBLISH_HOP_LIMIT = 20
+const PRINT_CHAIN_OPS = false
 
 type BlockAugmented struct {
 	block  *Block
@@ -25,25 +28,27 @@ type MissingBlock struct {
 
 // To avoid deadlocks: always take blocksLock -> mappingLock -> pendingTxLock
 type BlockchainHandler struct {
-	blocks        map[SHA256_HASH]*BlockAugmented
-	blocksLock    *sync.RWMutex
-	mapping       map[string]SHA256_HASH
-	mappingLock   *sync.RWMutex
-	pendingTx     map[string]*File
-	pendingTxLock *sync.RWMutex
-	lastBlockHash SHA256_HASH
-	simple        *SimpleHandler
+	blocks            map[SHA256_HASH]*BlockAugmented
+	blocksLock        *sync.RWMutex
+	mapping           map[string]SHA256_HASH
+	mappingLock       *sync.RWMutex
+	pendingTx         map[string]*TxPublish
+	pendingTxLock     *sync.RWMutex
+	lastBlockHash     SHA256_HASH
+	simple            *SimpleHandler
+	reputationHandler *ReputationHandler
 }
 
-func NewBlockchainHandler() *BlockchainHandler {
+func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 	return &BlockchainHandler{
-		pendingTx:     make(map[string]*File),
-		pendingTxLock: &sync.RWMutex{},
-		blocks:        make(map[SHA256_HASH]*BlockAugmented),
-		blocksLock:    &sync.RWMutex{},
-		mapping:       make(map[string]SHA256_HASH),
-		mappingLock:   &sync.RWMutex{},
-		lastBlockHash: ZERO_SHA256_HASH,
+		pendingTx:         make(map[string]*TxPublish),
+		pendingTxLock:     &sync.RWMutex{},
+		blocks:            make(map[SHA256_HASH]*BlockAugmented),
+		blocksLock:        &sync.RWMutex{},
+		mapping:           make(map[string]SHA256_HASH),
+		mappingLock:       &sync.RWMutex{},
+		lastBlockHash:     ZERO_SHA256_HASH,
+		reputationHandler: rep,
 	}
 }
 
@@ -70,6 +75,8 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 
 func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 	// Should not block
+	fmt.Println("Received a transaction")
+	fmt.Println(tx)
 
 	go func() {
 		if !b.isTXValid(tx) {
@@ -79,7 +86,7 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 		b.pendingTxLock.Lock()
 		defer b.pendingTxLock.Unlock()
 
-		b.pendingTx[tx.File.Name] = &tx.File
+		b.pendingTx[tx.File.Name] = tx
 
 		// Flood Tx if there is still budget
 		if b.prepareTxPublish(tx) {
@@ -99,6 +106,7 @@ func (b *BlockchainHandler) blockIsAcceptable(blk *Block) bool {
 }
 
 func (b *BlockchainHandler) HandleBlockPublish(blockPub *BlockPublish) {
+
 	// Should not block
 	go func() {
 		blk := &blockPub.Block
@@ -200,9 +208,13 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 
 	// If we grow the current chain
 	if b.lastBlockHash == newBlk.PrevHash || !initialized {
+
 		b.lastBlockHash = blkHash
 		b.applyBlockTx(newBlk)
-		fmt.Println(b.ChainString())
+		if PRINT_CHAIN_OPS {
+			fmt.Println(b.ChainString())
+		}
+
 		return
 	}
 
@@ -220,10 +232,14 @@ func (b *BlockchainHandler) acceptBlock(newBlk *Block) {
 			b.applyBlockTx(appBlk)
 		}
 		b.lastBlockHash = blkHash
-		fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))
-		fmt.Println(b.ChainString())
+		if PRINT_CHAIN_OPS {
+			fmt.Printf("FORK-LONGER rewind %d blocks\n", len(rewind))
+			fmt.Println(b.ChainString())
+		}
 	} else { // New block in side-chain
-		fmt.Printf("FORK-SHORTER %x\n", blkHash)
+		if PRINT_CHAIN_OPS {
+			fmt.Printf("FORK-SHORTER %x\n", blkHash)
+		}
 	}
 }
 
@@ -289,6 +305,9 @@ func (b *BlockchainHandler) blockRewind(prev *BlockAugmented, new *BlockAugmente
 
 // Be sure to have all the needed locks to apply the transactions
 func (b *BlockchainHandler) applyBlockTx(blk *Block) {
+	// Impact on the reputation
+	b.reputationHandler.AcceptNewBlock(*blk)
+
 	for _, newTx := range blk.Transactions {
 		file := newTx.File
 		fileHash, _ := ToHash(file.MetafileHash)
@@ -303,6 +322,9 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 
 // Be sure to have all the needed locks to apply the transactions
 func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
+	// Impact on reputation
+	b.reputationHandler.UndoBlock(*blk)
+
 	for _, oldTx := range blk.Transactions {
 		file := oldTx.File
 		delete(b.mapping, file.Name)

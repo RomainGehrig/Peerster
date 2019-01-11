@@ -30,6 +30,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.Files = g.files.SharedFiles()
 		case FileSearchResultQuery:
 			resp.FileSearchResult = g.files.LastQueryResults()
+		case ReputationQuery:
+			resp.Reputations = g.reputation.AllReputations
 		}
 		g.net.SendClientResponse(&resp, sender)
 	case req.Post != nil:
@@ -63,17 +65,21 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 	case packet.Simple != nil:
 		fmt.Println(packet.Simple)
 		g.simple.HandleSimpleMessage(packet.Simple)
+		g.peers.PrintPeers()
 	case packet.Rumor != nil:
 		fmt.Println(packet.Rumor.StringWithSender(sender))
 		g.rumors.HandleRumorMessage(packet.Rumor, sender)
+		g.peers.PrintPeers()
 	case packet.Status != nil:
 		fmt.Println(packet.Status.StringWithSender(sender))
 		g.rumors.HandleStatusMessage(packet.Status, sender)
+		g.peers.PrintPeers()
 	case packet.Private != nil:
 		if packet.Private.Destination == g.Name {
 			fmt.Println(packet.Private)
 		}
 		g.private.HandlePrivateMessage(packet.Private)
+		g.peers.PrintPeers()
 	case packet.DataReply != nil:
 		g.files.HandleDataReply(packet.DataReply)
 	case packet.DataRequest != nil:
@@ -92,8 +98,17 @@ func (g *Gossiper) DispatchPacket(packet *GossipPacket, sender PeerAddress) {
 		g.failure.HandleReqChunkList(packet.RequestChunkList)
 	case packet.AnswerChunkList != nil:
 		g.failure.HandleAnswer(packet.AnswerChunkList)
+	case packet.ReplicationRequest != nil:
+		g.files.HandleReplicationRequest(packet.ReplicationRequest)
+	case packet.ReplicationReply != nil:
+		g.files.HandleReplicationReply(packet.ReplicationReply)
+	case packet.ReplicationACK != nil:
+		g.files.HandleReplicationACK(packet.ReplicationACK)
+	case packet.ChallengeRequest != nil:
+		g.files.HandleChallengeRequest(packet.ChallengeRequest)
+	case packet.ChallengeReply != nil:
+		g.files.HandleChallengeReply(packet.ChallengeReply)
 	}
-	g.peers.PrintPeers()
 }
 
 func (g *Gossiper) HandleClientMessage(m *Message) {

@@ -4,18 +4,21 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/blockchain"
-	. "github.com/RomainGehrig/Peerster/constants"
-	. "github.com/RomainGehrig/Peerster/messages"
-	. "github.com/RomainGehrig/Peerster/network"
-	. "github.com/RomainGehrig/Peerster/peers"
-	. "github.com/RomainGehrig/Peerster/routing"
-	. "github.com/RomainGehrig/Peerster/utils"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	. "github.com/RomainGehrig/Peerster/blockchain"
+	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/network"
+	. "github.com/RomainGehrig/Peerster/peers"
+	. "github.com/RomainGehrig/Peerster/reputation"
+	. "github.com/RomainGehrig/Peerster/routing"
+	. "github.com/RomainGehrig/Peerster/simple"
+	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const SHARED_DIR_NAME = "_SharedFiles"
@@ -28,21 +31,37 @@ type FileState int
 
 // TODO Where are they set ? Failed is not set
 const (
-	Shared              FileState = iota // Shared by us
+	Owned               FileState = iota // Owned by us
+	Replica                              // Replicated on this node
 	DownloadingMetafile                  // First phase of the download: metafile
 	Downloading                          // Second phase: chunks
 	Downloaded                           // Third phase: end
 	Failed
 )
 
+func (fs FileState) HaveWholeFile() bool {
+	// We don't include Downloaded because we can't guarantee having
+	// all the chunks still laying around
+	return fs == Owned || fs == Replica || fs == Downloaded
+}
+
+func (fs FileState) Downloading() bool {
+	return fs == Downloading || fs == DownloadingMetafile
+}
+
+func (fs FileState) HaveSomeChunks() bool {
+	return fs.HaveWholeFile() || fs == Downloading
+}
+
 type LocalFile struct {
-	Name         string      // Local name
-	MetafileHash SHA256_HASH // TODO
-	State        FileState
-	Size         int64 // Type given by the Stat().Size()
-	chunkCount   uint64
-	metafile     []byte // TODO
-	waitGroup    *sync.WaitGroup
+	Name            string      // Local name
+	MetafileHash    SHA256_HASH // TODO
+	State           FileState
+	Size            int64 // Type given by the Stat().Size()
+	chunkCount      uint64
+	metafile        []byte // TODO
+	waitGroup       *sync.WaitGroup
+	replicationData *ReplicationData
 }
 
 type DownloadRequest struct {
@@ -68,25 +87,29 @@ type SearchedFile struct {
 }
 
 type FileHandler struct {
-	// filesLock     *sync.RWMutex // TODO locks
-	// chunksLock     *sync.RWMutex // TODO locks
-	files           map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
-	chunks          map[SHA256_HASH]*FileChunk
-	searchedFiles   map[SHA256_HASH]*SearchedFile
-	searchedLock    *sync.RWMutex
-	seenRequests    []SeenRequest
-	queries         []*Query
-	sharedDir       string
-	downloadDir     string
-	name            string
-	downloadWorkers uint
-	downloadChannel chan<- *DownloadRequest
-	routing         *RoutingHandler
-	peers           *PeersHandler
-	net             *NetworkHandler
-	blockchain      *BlockchainHandler
-	dataDispatcher  *DataReplyDispatcher
-	srepDispatcher  *SearchReplyDispatcher
+	files                  map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
+	filesLock              *sync.RWMutex
+	chunks                 map[SHA256_HASH]*FileChunk
+	chunksLock             *sync.RWMutex
+	searchedFiles          map[SHA256_HASH]*SearchedFile
+	searchedLock           *sync.RWMutex
+	replicationReplies     map[SHA256_HASH]([]string) // Store replies here before choosing
+	replicationRepliesLock *sync.RWMutex
+	seenRequests           []SeenRequest
+	queries                []*Query
+	sharedDir              string
+	downloadDir            string
+	name                   string
+	downloadWorkers        uint
+	downloadChannel        chan<- *DownloadRequest
+	routing                *RoutingHandler
+	peers                  *PeersHandler
+	net                    *NetworkHandler
+	blockchain             *BlockchainHandler
+	dataDispatcher         *DataReplyDispatcher
+	srepDispatcher         *SearchReplyDispatcher
+	reputationhandler      *ReputationHandler
+	simple                 *SimpleHandler
 }
 
 func createDirIfNotExist(abspath string) error {
@@ -108,7 +131,7 @@ func createDirIfNotExist(abspath string) error {
 	return nil
 }
 
-func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
+func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *FileHandler {
 	exe, err := os.Executable()
 	if err != nil {
 		panic(err)
@@ -125,31 +148,39 @@ func NewFileHandler(name string, downloadWorkers uint) *FileHandler {
 	}
 
 	return &FileHandler{
-		files:           make(map[SHA256_HASH]*LocalFile),    // MetafileHash to file
-		chunks:          make(map[SHA256_HASH]*FileChunk),    // Hash to file chunk
-		searchedFiles:   make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
-		searchedLock:    &sync.RWMutex{},
-		seenRequests:    make([]SeenRequest, 0),
-		queries:         make([]*Query, 0),
-		sharedDir:       sharedDir,
-		downloadDir:     downloadDir,
-		downloadWorkers: downloadWorkers,
-		name:            name,
+		files:                  make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
+		filesLock:              &sync.RWMutex{},
+		chunks:                 make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
+		chunksLock:             &sync.RWMutex{},
+		searchedFiles:          make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
+		searchedLock:           &sync.RWMutex{},
+		replicationReplies:     make(map[SHA256_HASH]([]string)),
+		replicationRepliesLock: &sync.RWMutex{},
+		seenRequests:           make([]SeenRequest, 0),
+		queries:                make([]*Query, 0),
+		sharedDir:              sharedDir,
+		downloadDir:            downloadDir,
+		downloadWorkers:        downloadWorkers,
+		name:                   name,
+		reputationhandler:      r,
 	}
 }
 
+// Files only directly shared by us (not replicated)
 func (f *FileHandler) SharedFiles() []FileInfo {
-	// TODO LOCKS
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	files := make([]FileInfo, 0)
 	for _, file := range f.files {
-		if file.State == Shared {
+		if file.State == Owned {
 			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash, Size: file.Size})
 		}
 	}
 	return files
 }
 
-func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler, blockchain *BlockchainHandler) {
+func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler, blockchain *BlockchainHandler, simple *SimpleHandler) {
 	f.routing = routing
 	f.dataDispatcher = runDataReplyDispatcher()
 	f.srepDispatcher = runSearchReplyDispatcher()
@@ -157,12 +188,30 @@ func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, r
 	f.net = net
 	f.peers = peers
 	f.blockchain = blockchain
+	f.simple = simple
 }
 
 /* We just got some new chunk */
 func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 	// Important: should not block
 	if dataRep.Destination == f.name {
+
+		// Impact on the reputation, must add a TxPublish to the blockchain
+		// First create the new TxPublish to be "mined"
+		filename := fmt.Sprintf("%x", dataRep.Data)
+		transaction := TxPublish{
+			Type: DownloadSuccess,
+			File: File{Name: filename,
+				Size:         0,
+				MetafileHash: []byte{}},
+			NodeOrigin:      dataRep.Destination,
+			NodeDestination: dataRep.Origin,
+			TargetHash:      dataRep.Data,
+			HopLimit:        10,
+		}
+		// Handle the transaction in the blockchain
+		go f.blockchain.HandleTxPublish(&transaction)
+
 		go func() {
 			f.dataDispatcher.dataReplyChan <- dataRep
 		}()
@@ -180,7 +229,9 @@ func (f *FileHandler) HandleDataRequest(dataReq *DataRequest) {
 		// TODO Should we differentiate between when we are the destination and
 		// when we just happen to have the chunk already ?
 		if dataRep, valid := f.answerTo(dataReq); valid {
-			f.routing.SendPacketTowards(dataRep, dataRep.Destination)
+			if f.reputationhandler.CanDownloadChunk(dataReq.Destination) {
+				f.routing.SendPacketTowards(dataRep, dataRep.Destination)
+			}
 		} else if dataReq.Destination == f.name {
 			// The destination is us but we can't reply because we don't have the data
 			fmt.Printf("We don't have data for %x. Dropping the request.\n", dataReq.HashValue)
@@ -205,12 +256,17 @@ func (f *FileHandler) answerTo(dataReq *DataRequest) (*DataReply, bool) {
 		HashValue:   dataReq.HashValue,
 	}
 
-	// TODO Locks
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	// Reply can either be a metafile or a chunk
 	if metafile, present := f.files[hash]; present {
 		reply.Data = metafile.metafile
 		return reply, true
 	}
+
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
 
 	if chunk, present := f.chunks[hash]; present && chunk.HasData {
 		reply.Data = chunk.Data
@@ -242,12 +298,11 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 }
 
 func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
-	// TODO locks
-	// TODO Reenable check ?
-	// if metafile, present := f.files[metafileHash]; present && metafile.State == Shared {
-	// 	fmt.Printf("File is already shared (metafile is present). Hash: %x \n", metafileHash)
-	// 	return
-	// }
+	f.filesLock.Lock()
+	if metafile, present := f.files[metafileHash]; present && metafile.State.Downloading() {
+		fmt.Printf("File is either downloading or already downloaded: won't restart download. Hash: %x \n", metafileHash)
+		return
+	}
 
 	// Create an entry for this file
 	file := &LocalFile{
@@ -255,8 +310,9 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 		MetafileHash: metafileHash,
 		State:        DownloadingMetafile,
 	}
-	// TODO Locks
+
 	f.files[metafileHash] = file
+	f.filesLock.Unlock()
 
 	fmt.Println("DOWNLOADING metafile of", localName, "from", metafileOwner)
 	// Request for metafile
@@ -266,6 +322,7 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 	})
 	if !success {
 		fmt.Printf("Downloading metafile %x from %s was unsuccessful. \n", metafileHash, metafileOwner)
+		file.State = Failed
 		return
 	}
 
@@ -289,8 +346,12 @@ func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner strin
 	outputFile, err := os.OpenFile(filepath.Join(f.downloadDir, localName), os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		fmt.Println("Could not open file for writing:", err)
+		file.State = Failed
 		return
 	}
+
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
 
 	totalWritten := int64(0)
 	for _, hash := range hashes {
@@ -317,6 +378,12 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
    Returns (*DataReply, true) if the download was successful and (nil, false)
    if the download failed for any reason. Blocking function */
 func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
+
+	// Before download, we should check that we have indeed the reputation available to download a file.
+	if !f.reputationhandler.CanDownloadChunk(f.name) {
+		return nil, false
+	}
+
 	dest := req.Dest
 	chunkHash := req.Hash
 
@@ -346,7 +413,10 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 				return nil, false
 			}
 
+			f.chunksLock.RLock()
 			chunkInfo, present := f.chunks[req.Hash]
+			f.chunksLock.RUnlock()
+
 			if present {
 				fmt.Printf("DOWNLOADING %s chunk %d from %s\n", chunkInfo.File.Name, chunkInfo.Number, req.Dest)
 			}
@@ -362,6 +432,9 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 		case <-ticker.C:
 			timeouts += 1
 			if timeouts > MAX_RETRIES {
+
+				// Registering the failure in the blockchain
+				f.blockchain.HandleTxPublish(f.reputationhandler.CreateTimeoutTransaction(fmt.Sprintf("%x", req.Hash[:]), f.name, req.Dest))
 				fmt.Printf("Maximum retries reached. Aborting download of %x\n", chunkHash)
 				return nil, false
 			}
@@ -387,13 +460,16 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	}
 
 	// Add metafile to file
-	// TODO Locks
+	f.filesLock.RLock()
 	file, present := f.files[hash]
+	f.filesLock.RUnlock()
+
 	// We didn't ask for this file
 	if !present {
 		return nil, errors.New(fmt.Sprint("Received a metafile we didn't ask for. Hash: ", hash))
-	} else if file.State == Shared {
+	} else if file.State == Owned {
 		return nil, errors.New(fmt.Sprint("We won't download file that was shared by us. File is: ", file.Name))
+		// TODO STATE = Replica
 	} else {
 		file.MetafileHash = hash
 		file.metafile = hashes
@@ -408,6 +484,10 @@ func (f *FileHandler) addMetafileInfo(hash SHA256_HASH, hashes []byte) ([]SHA256
 	// Add all hashes to the download list
 	// TODO Locks
 	separatedHashes := MetaFileToHashes(hashes)
+
+	f.chunksLock.Lock()
+	defer f.chunksLock.Unlock()
+
 	for chunkCount, chunkHash := range separatedHashes {
 		f.chunks[chunkHash] = &FileChunk{
 			File:    file,
@@ -469,7 +549,11 @@ func (f *FileHandler) acceptDataChunk(hash SHA256_HASH, data []byte) {
 	// Add chunk to downloaded
 
 	// TODO presence checking should be unnecessary
+
+	f.chunksLock.RLock()
 	chunk, present := f.chunks[hash]
+	f.chunksLock.RUnlock()
+
 	if !present {
 		panic("Chunk not present")
 	}
@@ -492,15 +576,21 @@ func (f *FileHandler) RequestFileIndexing(filename string) {
 	// Put back the filename as Name instead of the abspath
 	indexed.Name = filename
 
-	// TODO TMP TEST
-	// TODO LOCKS
-	// TODO What about blocks that were previously there,....
+	f.chunksLock.Lock()
+	// Save all file chunks into our global chunk map
 	for h, v := range fileChunks {
 		f.chunks[h] = v
 	}
+	f.chunksLock.Unlock()
+
 	fmt.Printf("Indexed file %s (%d chunks) with hash %x\n", indexed.Name, len(fileChunks), indexed.MetafileHash)
 
+	f.filesLock.Lock()
 	f.files[indexed.MetafileHash] = indexed
+	f.filesLock.Unlock()
+
+	// Make sure the file is replicated
+	go f.RunOwnedFileProcess(indexed)
 
 	// Claim the file's name on the blockchain
 	bFile := &File{
@@ -523,8 +613,10 @@ func (f *FileHandler) toIndexedFile(abspath string) (*LocalFile, map[SHA256_HASH
 	indexedFile := &LocalFile{
 		Name:  abspath, // Changeable if needed
 		Size:  fileStats.Size(),
-		State: Shared,
+		State: Owned,
 	}
+
+	indexedFile.InitializeReplicationData()
 
 	fileChunks := make(map[SHA256_HASH]*FileChunk)
 

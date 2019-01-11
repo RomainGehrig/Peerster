@@ -9,6 +9,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/network"
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/private"
+	. "github.com/RomainGehrig/Peerster/reputation"
 	. "github.com/RomainGehrig/Peerster/routing"
 	. "github.com/RomainGehrig/Peerster/rumors"
 	. "github.com/RomainGehrig/Peerster/simple"
@@ -26,12 +27,15 @@ type Gossiper struct {
 	files      *FileHandler
 	blockchain *BlockchainHandler
 	failure    *FailureHandler
+	reputation *ReputationHandler
 }
 
 const DEFAULT_DOWNLOADING_WORKER_COUNT uint = 10
 
 func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, rtimer int, simple bool) *Gossiper {
 	simpleHandler := NewSimpleHandler(name, gossipAddr)
+	reputationHandler := NewReputationHandler()
+	reputationHandler.IncreaseOrCreate(name, 0) // Local initialization of the node with our reputation added
 	return &Gossiper{
 		simpleMode: simple,
 		Name:       name,
@@ -44,6 +48,9 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT),
 		blockchain: NewBlockchainHandler(),
 		failure:    NewFailureHandler(name, simpleHandler),
+		files:      NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT, reputationHandler),
+		blockchain: NewBlockchainHandler(reputationHandler),
+		reputation: reputationHandler,
 	}
 }
 
@@ -56,7 +63,7 @@ func (g *Gossiper) Run() {
 	go g.rumors.RunRumorHandler(g.net, g.peers, g.routing)
 	go g.routing.RunRoutingHandler(g.peers, g.net, g.rumors)
 	go g.private.RunPrivateHandler(g.routing, g.net)
-	go g.files.RunFileHandler(g.net, g.peers, g.routing, g.blockchain)
+	go g.files.RunFileHandler(g.net, g.peers, g.routing, g.blockchain, g.simple)
 	go g.blockchain.RunBlockchainHandler(g.simple)
 	go g.failure.RunFailureHandler()
 

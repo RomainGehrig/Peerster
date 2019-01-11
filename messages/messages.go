@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	"strings"
 )
 
@@ -69,10 +70,24 @@ type SearchReply struct {
 	Results     []*SearchResult
 }
 
+type TransactionType int
+
+const (
+	Other TransactionType = iota
+	IndexChunk
+	DownloadSuccess
+	DownloadFail
+	NewMaster
+)
+
 /// Blockchain
 type TxPublish struct {
-	File     File
-	HopLimit uint32
+	Type            TransactionType // One type of block to rule them all
+	File            File
+	NodeOrigin      string // Who is the downloader/indexer/master
+	NodeDestination string // From whom the file was downloaded
+	TargetHash      []byte // Target of the transaction
+	HopLimit        uint32
 }
 
 type BlockPublish struct {
@@ -90,6 +105,51 @@ type Block struct {
 	PrevHash     [32]byte
 	Nonce        [32]byte
 	Transactions []TxPublish
+}
+
+/// File replication
+type ChallengeRequest struct {
+	Destination string
+	Source      string
+	FileHash    SHA256_HASH
+	Challenge   uint64
+	HopLimit    int
+}
+
+type ChallengeReply struct {
+	Destination string
+	Source      string
+	FileHash    SHA256_HASH
+	Result      SHA256_HASH
+	HopLimit    int
+}
+
+// TODO
+type ReplicationSearch struct {
+	Source   string
+	FileHash SHA256_HASH
+	HopLimit int
+}
+
+type ReplicationRequest struct {
+	Source   string
+	FileHash SHA256_HASH
+	FileSize int64
+	HopLimit int
+}
+
+type ReplicationReply struct {
+	Source      string
+	Destination string
+	FileHash    SHA256_HASH
+	HopLimit    int
+}
+
+type ReplicationACK struct {
+	Source      string
+	Destination string
+	FileHash    SHA256_HASH
+	HopLimit    int
 }
 
 /// Private messages
@@ -126,16 +186,21 @@ type AnswerChunkList struct {
 
 //// Actual packet sent
 type GossipPacket struct {
-	Simple           *SimpleMessage
-	Rumor            *RumorMessage
-	Status           *StatusPacket
-	Private          *PrivateMessage
-	DataRequest      *DataRequest
-	DataReply        *DataReply
-	SearchRequest    *SearchRequest
-	SearchReply      *SearchReply
-	TxPublish        *TxPublish
-	BlockPublish     *BlockPublish
+	Simple             *SimpleMessage
+	Rumor              *RumorMessage
+	Status             *StatusPacket
+	Private            *PrivateMessage
+	DataRequest        *DataRequest
+	DataReply          *DataReply
+	SearchRequest      *SearchRequest
+	SearchReply        *SearchReply
+	TxPublish          *TxPublish
+	BlockPublish       *BlockPublish
+	ChallengeRequest   *ChallengeRequest
+	ChallengeReply     *ChallengeReply
+	ReplicationRequest *ReplicationRequest
+	ReplicationReply   *ReplicationReply
+	ReplicationACK     *ReplicationACK
 	OnlineMessage    *OnlineMessage
 	RequestChunkList *RequestChunkList
 	AnswerChunkList  *AnswerChunkList
@@ -165,10 +230,27 @@ func (b *Block) Hash() (out [32]byte) {
 
 func (t *TxPublish) Hash() (out [32]byte) {
 	h := sha256.New()
+	// Old hash function
 	binary.Write(h, binary.LittleEndian,
 		uint32(len(t.File.Name)))
 	h.Write([]byte(t.File.Name))
 	h.Write(t.File.MetafileHash)
+
+	// Augmented TxPublish
+	value := byte(t.Type)
+	h.Write([]byte{value}) // Type of the transaction
+
+	// Origin of the transaction
+	binary.Write(h, binary.LittleEndian,
+		uint32(len(t.NodeOrigin)))
+	h.Write([]byte(t.NodeOrigin))
+	// Destination of the transaction
+	binary.Write(h, binary.LittleEndian,
+		uint32(len(t.NodeDestination)))
+	h.Write([]byte(t.NodeDestination))
+	// Chunk of the transaction
+	h.Write(t.TargetHash)
+
 	copy(out[:], h.Sum(nil))
 	return
 }
@@ -264,4 +346,23 @@ func (req *RequestChunkList) ToGossipPacket() *GossipPacket {
 
 func (ans *AnswerChunkList) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{AnswerChunkList: ans}
+  
+func (cr *ChallengeRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ChallengeRequest: cr}
+}
+
+func (cr *ChallengeReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ChallengeReply: cr}
+}
+
+func (rr *ReplicationRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationRequest: rr}
+}
+
+func (rr *ReplicationReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationReply: rr}
+}
+
+func (ra *ReplicationACK) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationACK: ra}
 }

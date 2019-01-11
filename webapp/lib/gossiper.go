@@ -3,11 +3,22 @@ package lib
 import (
 	// "github.com/gorilla/handlers"
 	"fmt"
+	"net"
+
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/messages"
 	"github.com/dedis/protobuf"
-	"net"
 )
+
+type Configuration struct {
+	UIPort int
+}
+
+var Config Configuration = Configuration{}
+
+func (c *Configuration) SetGUIPort(newPort int) {
+	c.UIPort = newPort
+}
 
 func waitForResponse(conn net.Conn) *Response {
 	packetBytes := make([]byte, UDP_DATAGRAM_MAX_SIZE)
@@ -27,7 +38,7 @@ func sendQuery(req *Request) net.Conn {
 	if err != nil {
 		fmt.Println(err)
 	}
-	conn, err := net.Dial("udp4", ":8080")
+	conn, err := net.Dial("udp4", fmt.Sprintf(":%d", Config.UIPort))
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -105,4 +116,9 @@ func postFileDownloadRequest(destination string, hash SHA256_HASH, filename stri
 func addNewNode(addr string) {
 	toSend := &Request{Post: &PostRequest{Node: &Node{Addr: addr}}}
 	sendQuery(toSend).Close()
+}
+
+func getReputation() map[string]int64 {
+	toSend := &Request{Get: &GetRequest{Type: ReputationQuery}}
+	return reqToResp(toSend).Reputations
 }

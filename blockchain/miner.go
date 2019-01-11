@@ -23,11 +23,8 @@ func (b *BlockchainHandler) runMiner() {
 		// Get pending transactions
 		b.pendingTxLock.RLock()
 		pendingTx := make([]TxPublish, 0)
-		for _, file := range b.pendingTx {
-			pendingTx = append(pendingTx, TxPublish{
-				HopLimit: TX_PUBLISH_HOP_LIMIT,
-				File:     *file,
-			})
+		for _, tx := range b.pendingTx {
+			pendingTx = append(pendingTx, *tx)
 		}
 		b.pendingTxLock.RUnlock()
 
@@ -52,7 +49,10 @@ func (b *BlockchainHandler) runMiner() {
 			// Time from start to mine
 			miningDuration := time.Now().Sub(startTime)
 
-			fmt.Printf("FOUND-BLOCK %x\n", block.Hash())
+			if PRINT_CHAIN_OPS {
+				fmt.Printf("FOUND-BLOCK %x\n", block.Hash())
+			}
+
 			b.acceptBlock(block)
 
 			go func() {

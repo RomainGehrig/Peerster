@@ -75,7 +75,6 @@ func (q *Query) isMatchedByResult(sres *SearchResult) bool {
 }
 
 func (f *FileHandler) HandleSearchReply(srep *SearchReply) {
-	// TODO Should not block !
 	go func() {
 		// Got a reply: it's either for us or we need to forward it
 		if srep.Destination == f.name {
@@ -177,6 +176,7 @@ func (f *FileHandler) RequestSearchedFileDownload(metafileHash SHA256_HASH, loca
 			return
 		}
 
+		// Any chunk owner should own the file's metafile
 		metafileOwner := file.chunks[0]
 		resolver := func(chunkNumber uint64) string {
 			return file.chunks[chunkNumber-1]
@@ -189,10 +189,12 @@ func (f *FileHandler) answerSearchRequest(sreq *SearchRequest, sender ...PeerAdd
 	// If search matches some local files (ie. downloading or sharing), send back a reply
 	matches := make([]*SearchResult, 0)
 
-	// TODO LOCKS
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
 	for _, file := range f.files {
 		// We cannot provide chunks if we don't have any
-		if file.State == DownloadingMetafile || file.State == Failed {
+		if !file.State.HaveSomeChunks() {
 			continue
 		}
 
@@ -351,6 +353,10 @@ func (f *FileHandler) newQueryWatcher(keywords []string) *Query {
 
 func (f *FileHandler) chunkMap(file *LocalFile) []uint64 {
 	chunks := make([]uint64, 0)
+
+	f.chunksLock.RLock()
+	defer f.chunksLock.RUnlock()
+
 	for _, hash := range MetaFileToHashes(file.metafile) {
 		// TODO LOCKS
 		if chunk := f.chunks[hash]; chunk.HasData {

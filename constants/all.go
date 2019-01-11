@@ -8,6 +8,7 @@ const UDP_DATAGRAM_MAX_SIZE int = 65507 // Maximum payload for UDP
 const CHANNEL_BUFFERSIZE int = 16
 
 const DEFAULT_HOP_LIMIT = 10
+const SMALL_FLOOD_HOP_LIMIT = 3
 
 type SHA256_HASH [sha256.Size]byte
 
