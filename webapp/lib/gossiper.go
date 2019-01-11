@@ -88,6 +88,12 @@ func postNewMessage(text string) {
 	sendQuery(toSend).Close()
 }
 
+func postNewRedundancyFactor(hash SHA256_HASH, newFactor int) {
+	fmt.Printf("New redundancy factor. For %x: new factor is %d\n", hash, newFactor)
+	toSend := &Request{Post: &PostRequest{FileRedundancyFactor: &FileRedundancyFactor{Hash: hash, Factor: newFactor}}}
+	sendQuery(toSend).Close()
+}
+
 func postSearchRequest(keywords []string) {
 	toSend := &Request{Post: &PostRequest{FileSearch: &FileSearch{Keywords: keywords}}}
 	sendQuery(toSend).Close()

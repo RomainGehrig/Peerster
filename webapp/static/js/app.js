@@ -80,11 +80,26 @@ let vue = new Vue({
             }
         },
 
+        redundancyFactor: function(file) {
+            return file.replicas.length / file.replicationFactor;
+        },
+
         // Copied from https://stackoverflow.com/a/34310051/1439561
         toHexString: function(byteArray) {
             return Array.from(byteArray, function(byte) {
                 return ('0' + (byte & 0xFF).toString(16)).slice(-2);
             }).join('').toUpperCase();
+        },
+
+        // Adapted from https://stackoverflow.com/a/17268489/1439561
+        getColor: function(value) {
+            // Hack for another part to work
+            $('[data-toggle="tooltip"]').tooltip();
+
+            //value from 0 to 1 (0 is red, 1 is green)
+            value = Math.max(0, Math.min(1, value));
+            var hue=((value)*120).toString(10);
+            return ["hsl(",hue,",100%,50%)"].join("");
         },
 
         humanSize: function(byteCount) {
@@ -363,6 +378,15 @@ async function addNode(node) {
 // Files
 async function sendFileName(filename) {
     return jsonPost("/sharedFiles", JSON.stringify({"filename": filename}));
+}
+
+// Redundancy
+async function sendNewRedundancyFactor(hash, factor) {
+    if (Array.isArray(hash)) {
+        hash = vue.toHexString(hash);
+    }
+    console.log("Hash is", hash);
+    return jsonPost("/redundancy", JSON.stringify({"hash": hash, "factor": factor}));
 }
 
 // Search

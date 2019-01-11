@@ -25,6 +25,7 @@ func main() {
 	r.HandleFunc("/files", FileRequestHandler).Methods("POST")
 	r.HandleFunc("/search", SearchRequestHandler).Methods("GET", "POST")
 	r.HandleFunc("/reputations", ReputationHandler).Methods("GET")
+	r.HandleFunc("/redundancy", RedundancyHandler).Methods("POST")
 
 	r.PathPrefix("/").Handler(http.StripPrefix("/", http.FileServer(http.Dir("static/"))))
 

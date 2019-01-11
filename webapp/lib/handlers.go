@@ -107,6 +107,26 @@ func PrivateMessageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func RedundancyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		var redundancyFactor struct {
+			Hash   string `json:"hash"`
+			Factor int    `json:"factor"`
+		}
+		json.NewDecoder(r.Body).Decode(&redundancyFactor)
+
+		decoded, err := hex.DecodeString(redundancyFactor.Hash)
+		if err != nil {
+			ackPOST(false, w)
+		} else if hash, err := ToHash(decoded); err == nil {
+			postNewRedundancyFactor(hash, redundancyFactor.Factor)
+			ackPOST(true, w)
+		} else {
+			ackPOST(false, w)
+		}
+	}
+}
+
 func SharedFileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		var files struct {

@@ -55,6 +55,9 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 		case post.FileSearch != nil:
 			fs := post.FileSearch
 			g.files.StartSearch(fs.Keywords, fs.Budget)
+		case post.FileRedundancyFactor != nil:
+			frf := post.FileRedundancyFactor
+			g.files.SetRedundancyFactor(frf.Hash, frf.Factor)
 		}
 	}
 }

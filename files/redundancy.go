@@ -508,6 +508,17 @@ func (f *FileHandler) ChallengeReplica(replicaName string, file *LocalFile, clea
 		}
 	}
 }
+func (f *FileHandler) SetRedundancyFactor(hash SHA256_HASH, factor int) {
+	f.filesLock.RLock()
+	file, present := f.files[hash]
+	f.filesLock.RUnlock()
+
+	if !present || file.State != Owned || factor < 0 {
+		return
+	}
+
+	file.replicationData.factor = factor
+}
 
 func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*ChallengeRequest, SHA256_HASH) {
 	challenge := rand.Uint64()

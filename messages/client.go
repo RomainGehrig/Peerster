@@ -50,6 +50,11 @@ type FileIndex struct {
 	Filename string
 }
 
+type FileRedundancyFactor struct {
+	Hash   SHA256_HASH `file:"hash"`
+	Factor int         `file:"factor"`
+}
+
 // If Destination is "", the file will be downloaded from all
 // known peers that have chunks of the file
 type FileDownload struct {
@@ -68,11 +73,12 @@ type FileSearchResult struct {
 }
 
 type PostRequest struct {
-	Node         *Node
-	Message      *Message
-	FileIndex    *FileIndex
-	FileDownload *FileDownload
-	FileSearch   *FileSearch
+	Node                 *Node
+	Message              *Message
+	FileIndex            *FileIndex
+	FileDownload         *FileDownload
+	FileSearch           *FileSearch
+	FileRedundancyFactor *FileRedundancyFactor
 }
 
 type Request struct {
