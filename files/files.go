@@ -378,6 +378,12 @@ func (f *FileHandler) RequestFileDownload(dest string, metafileHash SHA256_HASH,
    Returns (*DataReply, true) if the download was successful and (nil, false)
    if the download failed for any reason. Blocking function */
 func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
+
+	// Before download, we should check that we have indeed the reputation available to download a file.
+	if !f.reputationhandler.CanDownloadChunk(f.name) {
+		return nil, false
+	}
+
 	dest := req.Dest
 	chunkHash := req.Hash
 
