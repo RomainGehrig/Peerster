@@ -4,8 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-	. "github.com/RomainGehrig/Peerster/constants"
 	"strings"
+
+	. "github.com/RomainGehrig/Peerster/constants"
 )
 
 ///// Internode messages
@@ -201,9 +202,9 @@ type GossipPacket struct {
 	ReplicationRequest *ReplicationRequest
 	ReplicationReply   *ReplicationReply
 	ReplicationACK     *ReplicationACK
-	OnlineMessage    *OnlineMessage
-	RequestChunkList *RequestChunkList
-	AnswerChunkList  *AnswerChunkList
+	OnlineMessage      *OnlineMessage
+	RequestChunkList   *RequestChunkList
+	AnswerChunkList    *AnswerChunkList
 }
 
 /// Hash function
@@ -346,7 +347,8 @@ func (req *RequestChunkList) ToGossipPacket() *GossipPacket {
 
 func (ans *AnswerChunkList) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{AnswerChunkList: ans}
-  
+}
+
 func (cr *ChallengeRequest) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{ChallengeRequest: cr}
 }
