@@ -174,7 +174,14 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 	files := make([]FileInfo, 0)
 	for _, file := range f.files {
 		if file.State == Owned {
-			files = append(files, FileInfo{Filename: file.Name, Hash: file.MetafileHash, Size: file.Size})
+			files = append(files, FileInfo{
+				Filename:          file.Name,
+				Hash:              file.MetafileHash,
+				Size:              file.Size,
+				IsOwner:           true,
+				ReplicaNames:      file.replicationData.holders,
+				ReplicationFactor: file.replicationData.factor,
+			})
 		}
 	}
 	return files

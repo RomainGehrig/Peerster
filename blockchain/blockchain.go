@@ -9,7 +9,6 @@ import (
 	. "github.com/RomainGehrig/Peerster/messages"
 	. "github.com/RomainGehrig/Peerster/reputation"
 	. "github.com/RomainGehrig/Peerster/simple"
-	. "github.com/RomainGehrig/Peerster/utils"
 )
 
 const TX_PUBLISH_HOP_LIMIT = 10
@@ -30,13 +29,13 @@ type MissingBlock struct {
 type BlockchainHandler struct {
 	blocks            map[SHA256_HASH]*BlockAugmented
 	blocksLock        *sync.RWMutex
-	mapping           map[string]SHA256_HASH
+	mapping           map[SHA256_HASH]struct{}
 	mappingLock       *sync.RWMutex
-	owner             map[string]string
+	owner             map[SHA256_HASH]string
 	ownerLock         *sync.RWMutex
-	ownerId           map[string]uint64
+	ownerId           map[SHA256_HASH]uint64
 	ownerIdLock       *sync.RWMutex
-	pendingTx         map[string]*TxPublish
+	pendingTx         map[SHA256_HASH]*TxPublish
 	pendingTxLock     *sync.RWMutex
 	lastBlockHash     SHA256_HASH
 	simple            *SimpleHandler
@@ -45,15 +44,15 @@ type BlockchainHandler struct {
 
 func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 	return &BlockchainHandler{
-		pendingTx:         make(map[string]*TxPublish),
+		pendingTx:         make(map[SHA256_HASH]*TxPublish),
 		pendingTxLock:     &sync.RWMutex{},
 		blocks:            make(map[SHA256_HASH]*BlockAugmented),
 		blocksLock:        &sync.RWMutex{},
-		mapping:           make(map[string]SHA256_HASH),
+		mapping:           make(map[SHA256_HASH]struct{}),
 		mappingLock:       &sync.RWMutex{},
-		owner:             make(map[string]string),
+		owner:             make(map[SHA256_HASH]string),
 		ownerLock:         &sync.RWMutex{},
-		ownerId:           make(map[string]uint64),
+		ownerId:           make(map[SHA256_HASH]uint64),
 		ownerIdLock:       &sync.RWMutex{},
 		lastBlockHash:     ZERO_SHA256_HASH,
 		reputationHandler: rep,
@@ -74,7 +73,7 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 	b.pendingTxLock.RLock()
 	defer b.pendingTxLock.RUnlock()
 
-	txName := tx.File.Name
+	txName := tx.Hash()
 	_, pending := b.pendingTx[txName]
 	_, present := b.mapping[txName]
 
@@ -94,7 +93,7 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 		b.pendingTxLock.Lock()
 		defer b.pendingTxLock.Unlock()
 
-		b.pendingTx[tx.File.Name] = tx
+		b.pendingTx[tx.Hash()] = tx
 
 		// Flood Tx if there is still budget
 		if b.prepareTxPublish(tx) {
@@ -317,13 +316,13 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 	b.reputationHandler.AcceptNewBlock(*blk)
 
 	for _, newTx := range blk.Transactions {
-		file := newTx.File
-		fileHash, _ := ToHash(file.MetafileHash)
-		b.mapping[file.Name] = fileHash
+
+		mappingName := newTx.Hash()
+		b.mapping[mappingName] = struct{}{}
 
 		// Delete transactions that are invalidated by block
-		if _, present := b.pendingTx[file.Name]; present {
-			delete(b.pendingTx, file.Name)
+		if _, present := b.pendingTx[mappingName]; present {
+			delete(b.pendingTx, mappingName)
 		}
 	}
 }
@@ -334,8 +333,7 @@ func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
 	b.reputationHandler.UndoBlock(*blk)
 
 	for _, oldTx := range blk.Transactions {
-		file := oldTx.File
-		delete(b.mapping, file.Name)
+		delete(b.mapping, oldTx.Hash())
 	}
 }
 
