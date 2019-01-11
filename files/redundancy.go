@@ -253,7 +253,7 @@ func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders
 		Source:   f.name,
 		FileHash: file.MetafileHash,
 		FileSize: file.Size,
-		HopLimit: DEFAULT_HOP_LIMIT,
+		HopLimit: SMALL_FLOOD_HOP_LIMIT,
 	}
 
 	fileHash := file.MetafileHash
