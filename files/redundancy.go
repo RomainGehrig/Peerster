@@ -16,6 +16,7 @@ import (
 const DEFAULT_REPLICATION_FACTOR = 3
 const DELAY_BETWEEN_REPLICA_CHECKS = 10 * time.Second
 const DELAY_BETWEEN_REPLICA_SEARCHES = 3 * time.Second
+const DELAY_BETWEEN_REPLICATION_CHECKS = 1 * time.Second
 const CHALLENGE_TIMEOUT = 5 * time.Second
 const DELAY_BETWEEN_CHALLENGE_STATUS_CHECKS = 100 * time.Millisecond
 const WAIT_FOR_REPLICATION_REPLIES = 1 * time.Second
@@ -58,6 +59,76 @@ func (lf *LocalFile) InitializeReplicationData() {
 	// TODO Init we become a replica (from Downloaded state)
 }
 
+func (f *FileHandler) HandleReplicationRequest(rr *ReplicationRequest) {
+	// Should not block
+	go func() {
+		// TODO Send a ReplicationReply if we are interesting in hosting the file
+		// because we have it or if we have space for it or other arbitrary criteria
+	}()
+}
+
+func (f *FileHandler) HandleReplicationReply(rr *ReplicationReply) {
+	// Should not block
+	go func() {
+		if rr.Destination != f.name {
+			if f.prepareReplicationReply(rr) {
+				f.routing.SendPacketTowards(rr, rr.Destination)
+			}
+		} else {
+			// TODO Add the reply to the list of interested nodes for this particular file
+		}
+	}()
+}
+
+func (f *FileHandler) HandleReplicationACK(ra *ReplicationACK) {
+	go func() {
+		if ra.Destination != f.name {
+			if f.prepareReplicationACK(ra) {
+				f.routing.SendPacketTowards(ra, ra.Destination)
+			}
+		} else {
+			fileHash := ra.FileHash
+
+			// TODO Better local name for search purpose ?
+			localName := fmt.Sprintf("%s_%x", f.name, fileHash)
+			f.downloadFile(fileHash, ra.Source, localName, func(uint64) string { return ra.Source })
+
+			f.filesLock.RLock()
+			f.files[fileHash].State = Replica
+			f.filesLock.RUnlock()
+		}
+	}()
+}
+func (f *FileHandler) prepareReplicationRequest(rr *ReplicationRequest) bool {
+	if rr.HopLimit <= 1 {
+		rr.HopLimit = 0
+		return false
+	}
+
+	rr.HopLimit -= 1
+	return true
+}
+
+func (f *FileHandler) prepareReplicationReply(rr *ReplicationReply) bool {
+	if rr.HopLimit <= 1 {
+		rr.HopLimit = 0
+		return false
+	}
+
+	rr.HopLimit -= 1
+	return true
+}
+
+func (f *FileHandler) prepareReplicationACK(ra *ReplicationACK) bool {
+	if ra.HopLimit <= 1 {
+		ra.HopLimit = 0
+		return false
+	}
+
+	ra.HopLimit -= 1
+	return true
+}
+
 // Handle a timeout in the network
 func (f *FileHandler) HandleTimeout(hostName string) {
 	// Should not block
@@ -87,14 +158,10 @@ func (f *FileHandler) ClaimOwnership(oldOwner string, fileHash SHA256_HASH) {
 // This function is used to do all the housekeeping of having to handle an owned file:
 //  - making sure there are enough replicas
 //  - if not, search for new
-func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
-	f.filesLock.RLock()
-	file, present := f.files[fileHash]
-	f.filesLock.RUnlock()
-
+func (f *FileHandler) RunOwnedFileProcess(file *LocalFile) {
 	// Check that we are the owner
-	if !present || file.State != Owned {
-		fmt.Printf("We either don't have or don't own the file with hash %x. Aborting ownership process\n", fileHash)
+	if file.State != Owned {
+		fmt.Printf("We either don't have or don't own the file with hash %x. Aborting ownership process\n", file.MetafileHash)
 		return
 	}
 
@@ -110,6 +177,8 @@ func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
 	newReplicasChannel := make(chan string) // TODO Buffering ?
 	// First replica search can be done immediately
 	timeBetweenReplicaSearch := time.NewTimer(0 * time.Second)
+
+	timeBetweenReplicationCheck := time.NewTicker(DELAY_BETWEEN_REPLICATION_CHECKS)
 
 	// Infinite loop of continuously checking that the replicas are alive
 	for {
@@ -172,7 +241,8 @@ func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
 		}
 
 		// TODO Distribute replication status (which replicas exist) ?
-		// TODO Sleep or ticker to avoid excessive looping ?
+		// Sleep or ticker to avoid excessive looping ?
+		<-timeBetweenReplicationCheck.C
 	}
 }
 
@@ -249,16 +319,6 @@ func (f *FileHandler) ContinuouslyCheckReplicaStatus(replicaName string, file *L
 			}
 		}
 	}()
-}
-
-// Should be run as a new go routine
-func (f *FileHandler) RunSearchNewReplicas(n int, file *LocalFile) bool {
-	// TODO Send query to nodes that aren't replicas already
-	// TODO Wait for answers
-	// TODO ACK up to n nodes (their download should not count for reputation spendings !)
-
-	// TODO Return true if we have enough answers
-	return true
 }
 
 // Insure that a replica has the file we gave it: return true if the replica

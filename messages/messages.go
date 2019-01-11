@@ -139,9 +139,10 @@ type ReplicationRequest struct {
 }
 
 type ReplicationReply struct {
-	Source   string
-	FileHash SHA256_HASH
-	HopLimit int
+	Source      string
+	Destination string
+	FileHash    SHA256_HASH
+	HopLimit    int
 }
 
 type ReplicationACK struct {
