@@ -31,18 +31,23 @@ type BlockchainHandler struct {
 	blocksLock        *sync.RWMutex
 	mapping           map[SHA256_HASH]struct{}
 	mappingLock       *sync.RWMutex
-	Owner             map[SHA256_HASH]string
-	OwnerLock         *sync.RWMutex
+	NewOwner          map[SHA256_HASH]bool
+	NewOwnerLock      *sync.RWMutex
+	DeleteOwner       map[SHA256_HASH]bool
+	DeleteOwnerLock   *sync.RWMutex
 	OwnerID           map[SHA256_HASH]uint64
 	OwnerIDLock       *sync.RWMutex
+	pendingID         map[SHA256_HASH]uint64
+	pendingIDLock     *sync.RWMutex
 	pendingTx         map[SHA256_HASH]*TxPublish
 	pendingTxLock     *sync.RWMutex
 	lastBlockHash     SHA256_HASH
+	name              string
 	simple            *SimpleHandler
 	reputationHandler *ReputationHandler
 }
 
-func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
+func NewBlockchainHandler(rep *ReputationHandler, designation string) *BlockchainHandler {
 	return &BlockchainHandler{
 		pendingTx:         make(map[SHA256_HASH]*TxPublish),
 		pendingTxLock:     &sync.RWMutex{},
@@ -50,11 +55,16 @@ func NewBlockchainHandler(rep *ReputationHandler) *BlockchainHandler {
 		blocksLock:        &sync.RWMutex{},
 		mapping:           make(map[SHA256_HASH]struct{}),
 		mappingLock:       &sync.RWMutex{},
-		Owner:             make(map[SHA256_HASH]string),
-		OwnerLock:         &sync.RWMutex{},
+		NewOwner:          make(map[SHA256_HASH]bool),
+		NewOwnerLock:      &sync.RWMutex{},
+		DeleteOwner:       make(map[SHA256_HASH]bool),
+		DeleteOwnerLock:   &sync.RWMutex{},
 		OwnerID:           make(map[SHA256_HASH]uint64),
 		OwnerIDLock:       &sync.RWMutex{},
+		pendingID:         make(map[SHA256_HASH]uint64),
+		pendingIDLock:     &sync.RWMutex{},
 		lastBlockHash:     ZERO_SHA256_HASH,
+		name:              designation,
 		reputationHandler: rep,
 	}
 }
@@ -73,11 +83,31 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 	b.pendingTxLock.RLock()
 	defer b.pendingTxLock.RUnlock()
 
-	txName := tx.Hash()
-	_, pending := b.pendingTx[txName]
-	_, present := b.mapping[txName]
+	b.pendingIDLock.RLock()
+	defer b.pendingIDLock.RUnlock()
 
-	return !(pending || present)
+	if tx.Type == NewMaster {
+		var hash_sha [32]byte
+		copy(hash_sha[:], tx.TargetHash)
+
+		id, present := b.pendingID[hash_sha]
+		if present {
+			return tx.ID > id
+		} else {
+			registerID, present := b.OwnerID[hash_sha]
+			if present {
+				return tx.ID > registerID
+			} else {
+				return tx.ID > 0
+			}
+		}
+	} else {
+		txName := tx.Hash()
+		_, pending := b.pendingTx[txName]
+		_, present := b.mapping[txName]
+
+		return !(pending || present)
+	}
 }
 
 func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
@@ -95,6 +125,13 @@ func (b *BlockchainHandler) HandleTxPublish(tx *TxPublish) {
 
 		b.pendingTx[tx.Hash()] = tx
 
+		if tx.Type == NewMaster {
+			b.pendingIDLock.Lock()
+			defer b.pendingIDLock.Unlock()
+			var hash_sha [32]byte
+			copy(hash_sha[:], tx.TargetHash)
+			b.pendingID[hash_sha] = tx.ID
+		}
 		// Flood Tx if there is still budget
 		if b.prepareTxPublish(tx) {
 			b.simple.BroadcastMessage(tx, nil)
@@ -315,10 +352,44 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 	// Impact on the reputation
 	b.reputationHandler.AcceptNewBlock(*blk)
 
+	b.OwnerIDLock.Lock()
+	defer b.OwnerIDLock.Unlock()
+
+	b.pendingIDLock.Lock()
+	defer b.pendingIDLock.Unlock()
+
+	b.NewOwnerLock.Lock()
+	defer b.NewOwnerLock.Unlock()
+
 	for _, newTx := range blk.Transactions {
 
 		mappingName := newTx.Hash()
 		b.mapping[mappingName] = struct{}{}
+
+		if newTx.Type == NewMaster {
+			var hash_sha [32]byte
+			copy(hash_sha[:], newTx.TargetHash)
+			b.OwnerID[hash_sha] = newTx.ID
+			if newTx.NodeOrigin == b.name {
+				b.NewOwner[hash_sha] = true
+			}
+
+			// Delete transactions that are invalidated by block
+			ID, present := b.pendingID[hash_sha]
+			if present && ID <= newTx.ID {
+				for k, v := range b.pendingTx {
+					if v.Type == NewMaster {
+						var pending_hash_sha [32]byte
+						copy(pending_hash_sha[:], v.TargetHash)
+						if pending_hash_sha == hash_sha && v.ID <= newTx.ID {
+							delete(b.pendingTx, k)
+						}
+					}
+				}
+
+				delete(b.pendingID, hash_sha)
+			}
+		}
 
 		// Delete transactions that are invalidated by block
 		if _, present := b.pendingTx[mappingName]; present {
@@ -331,8 +402,20 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
 	// Impact on reputation
 	b.reputationHandler.UndoBlock(*blk)
+	b.NewOwnerLock.Lock()
+	defer b.NewOwnerLock.Unlock()
 
+	b.DeleteOwnerLock.Lock()
+	defer b.DeleteOwnerLock.Unlock()
 	for _, oldTx := range blk.Transactions {
+		if oldTx.Type == NewMaster && oldTx.NodeOrigin == b.name {
+			var hash_sha [32]byte
+			copy(hash_sha[:], oldTx.TargetHash)
+			if _, present := b.NewOwner[hash_sha]; present {
+				delete(b.NewOwner, hash_sha)
+			}
+			b.DeleteOwner[hash_sha] = true
+		}
 		delete(b.mapping, oldTx.Hash())
 	}
 }

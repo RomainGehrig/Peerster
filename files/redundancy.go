@@ -532,31 +532,38 @@ func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
 	}
 }
 
-func (f *FileHandler) BecomeTheHost(hash SHA256_HASH) {
-	f.blockchain.OwnerIDLock.RLock()
-	defer f.blockchain.OwnerIDLock.RUnlock()
-	id, present := f.blockchain.OwnerID[hash]
+func (f *FileHandler) LoseMaster(hash SHA256_HASH) {
+	f.filesLock.RLock()
+	defer f.filesLock.RUnlock()
+
+	_, present := f.files[hash]
 	if present {
-		id = id + 1
+		f.files[hash].State = Replica
+	}
+}
+
+func (f *FileHandler) BecomeTheHost(hash SHA256_HASH, maxDelay int64) {
+	f.blockchain.OwnerIDLock.RLock()
+	prevID, present := f.blockchain.OwnerID[hash]
+	f.blockchain.OwnerIDLock.RUnlock()
+	var id uint64
+	if present {
+		id = prevID + 1
 	} else {
-		id = uint64(0)
+		prevID = 0
+		id = uint64(1)
 	}
 	tx := TxPublish{
 		Type:       NewMaster,
 		NodeOrigin: f.name,
-		//TargetHash: hash,
-		HopLimit: 20,
-		ID:       id,
+		TargetHash: hash[:],
+		HopLimit:   20,
+		ID:         id,
 	}
 	f.blockchain.HandleTxPublish(&tx)
-	/*
-		put it in the blockchain
-		if published and we are the new host {
-			hostingSetup(hash)
-	}*/
 }
 
-func (f *FileHandler) hostingSetup(hash SHA256_HASH, maxDelay int64) {
+func (f *FileHandler) HostingSetup(hash SHA256_HASH, maxDelay int64) {
 
 	req := RequestHasReplica{HostName: f.name,
 		FileHash: hash,

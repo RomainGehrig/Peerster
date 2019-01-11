@@ -1,9 +1,11 @@
 package failure
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
+	. "github.com/RomainGehrig/Peerster/blockchain"
 	. "github.com/RomainGehrig/Peerster/constants"
 	. "github.com/RomainGehrig/Peerster/files"
 	. "github.com/RomainGehrig/Peerster/messages"
@@ -22,9 +24,10 @@ type FailureHandler struct {
 	Dispatch       *SimpleHandler
 	File           *FileHandler
 	Adresses       *RoutingHandler
+	blockchain     *BlockchainHandler
 }
 
-func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addresses *RoutingHandler) *FailureHandler {
+func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addresses *RoutingHandler, block *BlockchainHandler) *FailureHandler {
 	return &FailureHandler{
 		Name:           name,
 		Nodes:          make(map[string]*OnlineMessage),
@@ -36,10 +39,17 @@ func NewFailureHandler(name string, net *SimpleHandler, file *FileHandler, addre
 		Dispatch:       net,
 		File:           file,
 		Adresses:       addresses,
+		blockchain:     block,
 	}
 }
 
 func (b *FailureHandler) RunFailureHandler() {
+	time.Sleep(1 * time.Second)
+	go b.checkingUpdateHost()
+	b.ping()
+}
+
+func (b *FailureHandler) ping() {
 	for {
 		msg := b.createOnlineMsg()
 		b.Dispatch.BroadcastMessage(msg, nil)
@@ -91,6 +101,7 @@ func (b *FailureHandler) updateTables(msg *OnlineMessage) {
 		if time.Now().Unix()-msg.TimeStamp > b.MaxDelay {
 			b.MaxDelay = time.Now().Unix() - msg.TimeStamp
 		}
+		fmt.Println("New Node:", msg.Name, ", detected with delay:", b.NodesDelay[msg.Name])
 		go b.detectFailure(msg.Name)
 	}
 }
@@ -112,11 +123,12 @@ func (b *FailureHandler) detectFailure(name string) {
 		b.NodesLock.RUnlock()
 		b.NodesDelayLock.RUnlock()
 		//the frequency of onlineMessage is 5 seconds so we can miss one message before considering the node is offline
-		if time.Now().Unix()-lastTime.TimeStamp < delay*2+420 {
+		if time.Now().Unix()-lastTime.TimeStamp < delay*2+6 {
 			time.Sleep(time.Second * 5)
 		} else {
 			b.NodesDown = append(b.NodesDown, name)
 			b.checkIfAHost(name)
+			fmt.Println("Node", name, "detected as now offline")
 			break
 		}
 	}
@@ -133,8 +145,28 @@ func (b *FailureHandler) checkIfAHost(name string) {
 	if len(node.Hosting) > 0 {
 		for _, file := range node.Hosting {
 			if b.File.ReplicatesFile(file) {
-				go b.File.BecomeTheHost(file)
+				fmt.Println("I will try to become host of ", file)
+				go b.File.BecomeTheHost(file, b.MaxDelay)
 			}
 		}
+	}
+}
+
+func (b *FailureHandler) checkingUpdateHost() {
+	for {
+		time.Sleep(2 * time.Second)
+		b.blockchain.NewOwnerLock.Lock()
+		for k := range b.blockchain.NewOwner {
+			go b.File.HostingSetup(k, b.MaxDelay)
+		}
+		b.blockchain.NewOwner = make(map[SHA256_HASH]bool)
+		b.blockchain.NewOwnerLock.Unlock()
+
+		b.blockchain.DeleteOwnerLock.Lock()
+		for k := range b.blockchain.DeleteOwner {
+			go b.File.LoseMaster(k)
+		}
+		b.blockchain.DeleteOwner = make(map[SHA256_HASH]bool)
+		b.blockchain.DeleteOwnerLock.Unlock()
 	}
 }

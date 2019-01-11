@@ -38,6 +38,7 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 	reputationHandler.IncreaseOrCreate(name, 0) // Local initialization of the node with our reputation added
 	fileHandler := NewFileHandler(name, DEFAULT_DOWNLOADING_WORKER_COUNT, reputationHandler)
 	routingHandler := NewRoutingHandler(time.Duration(rtimer) * time.Second)
+	blockchainHandler := NewBlockchainHandler(reputationHandler, name)
 	return &Gossiper{
 		simpleMode: simple,
 		Name:       name,
@@ -47,9 +48,9 @@ func NewGossiper(uiPort string, gossipAddr string, name string, peers []string, 
 		simple:     simpleHandler,
 		rumors:     NewRumorHandler(name),
 		private:    NewPrivateHandler(name),
-		failure:    NewFailureHandler(name, simpleHandler, fileHandler, routingHandler),
+		failure:    NewFailureHandler(name, simpleHandler, fileHandler, routingHandler, blockchainHandler),
 		files:      fileHandler,
-		blockchain: NewBlockchainHandler(reputationHandler),
+		blockchain: blockchainHandler,
 		reputation: reputationHandler,
 	}
 }
