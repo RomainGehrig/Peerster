@@ -167,23 +167,22 @@ type PrivateMessage struct {
 type OnlineMessage struct {
 	Name string
 	//list of metahash
-	Hosting   []string
+	Hosting   []SHA256_HASH
 	TimeStamp int64
 	HopLimit  uint32
 }
 
-type RequestChunkList struct {
+type RequestHasReplica struct {
 	HostName string
-	FileHash string
+	FileHash SHA256_HASH
 	HopLimit uint32
 }
 
-type AnswerChunkList struct {
-	Origin    string
-	Dest      string
-	FileHash  string
-	ChunkList []uint64
-	HopLimit  uint32
+type AnswerReplicaFile struct {
+	Origin   string
+	Dest     string
+	FileHash SHA256_HASH
+	HopLimit uint32
 }
 
 //// Actual packet sent
@@ -204,8 +203,8 @@ type GossipPacket struct {
 	ReplicationReply   *ReplicationReply
 	ReplicationACK     *ReplicationACK
 	OnlineMessage      *OnlineMessage
-	RequestChunkList   *RequestChunkList
-	AnswerChunkList    *AnswerChunkList
+	RequestHasReplica  *RequestHasReplica
+	AnswerReplicaFile  *AnswerReplicaFile
 }
 
 /// Hash function
@@ -342,12 +341,12 @@ func (o *OnlineMessage) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{OnlineMessage: o}
 }
 
-func (req *RequestChunkList) ToGossipPacket() *GossipPacket {
-	return &GossipPacket{RequestChunkList: req}
+func (req *RequestHasReplica) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{RequestHasReplica: req}
 }
 
-func (ans *AnswerChunkList) ToGossipPacket() *GossipPacket {
-	return &GossipPacket{AnswerChunkList: ans}
+func (ans *AnswerReplicaFile) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{AnswerReplicaFile: ans}
 }
 
 func (cr *ChallengeRequest) ToGossipPacket() *GossipPacket {
