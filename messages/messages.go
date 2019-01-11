@@ -70,7 +70,7 @@ type SearchReply struct {
 	Results     []*SearchResult
 }
 
-type TransactionType byte
+type TransactionType int
 
 const (
 	Other TransactionType = iota
