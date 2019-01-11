@@ -161,6 +161,29 @@ type PrivateMessage struct {
 	HopLimit    uint32
 }
 
+///I m online message
+type OnlineMessage struct {
+	Name string
+	//list of metahash
+	Hosting   []string
+	TimeStamp int64
+	HopLimit  uint32
+}
+
+type RequestChunkList struct {
+	HostName string
+	FileHash string
+	HopLimit uint32
+}
+
+type AnswerChunkList struct {
+	Origin    string
+	Dest      string
+	FileHash  string
+	ChunkList []uint64
+	HopLimit  uint32
+}
+
 //// Actual packet sent
 type GossipPacket struct {
 	Simple             *SimpleMessage
@@ -178,6 +201,9 @@ type GossipPacket struct {
 	ReplicationRequest *ReplicationRequest
 	ReplicationReply   *ReplicationReply
 	ReplicationACK     *ReplicationACK
+	OnlineMessage    *OnlineMessage
+	RequestChunkList *RequestChunkList
+	AnswerChunkList  *AnswerChunkList
 }
 
 /// Hash function
@@ -310,6 +336,17 @@ func (b *BlockPublish) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{BlockPublish: b}
 }
 
+func (o *OnlineMessage) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{OnlineMessage: o}
+}
+
+func (req *RequestChunkList) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{RequestChunkList: req}
+}
+
+func (ans *AnswerChunkList) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{AnswerChunkList: ans}
+  
 func (cr *ChallengeRequest) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{ChallengeRequest: cr}
 }
