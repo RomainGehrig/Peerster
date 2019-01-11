@@ -6,7 +6,7 @@ copy Peerster.exe usr3
 copy Peerster.exe usr4
 copy Peerster.exe usr5
 copy Peerster.exe usr6
-python prepare.py 128.179.159.177
+python prepare.py 127.0.0.1
 
 move usr0.bat usr0
 move usr1.bat usr1

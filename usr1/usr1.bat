@@ -1,1 +1,1 @@
-Peerster.exe -UIPort=8081 -rtimer=300 -gossipAddr=128.179.159.177:5001 -name=Node1 -peers=128.179.159.177:5002,128.179.159.177:5000
+Peerster.exe -UIPort=8081 -rtimer=300 -gossipAddr=127.0.0.1:5001 -name=Node1 -peers=127.0.0.1:5002,127.0.0.1:5000
