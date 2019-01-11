@@ -57,7 +57,7 @@ func (g *Gossiper) Run() {
 	go g.rumors.RunRumorHandler(g.net, g.peers, g.routing)
 	go g.routing.RunRoutingHandler(g.peers, g.net, g.rumors)
 	go g.private.RunPrivateHandler(g.routing, g.net)
-	go g.files.RunFileHandler(g.net, g.peers, g.routing, g.blockchain)
+	go g.files.RunFileHandler(g.net, g.peers, g.routing, g.blockchain, g.simple)
 	go g.blockchain.RunBlockchainHandler(g.simple)
 
 	for {

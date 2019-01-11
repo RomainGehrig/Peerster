@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	. "github.com/RomainGehrig/Peerster/constants"
 	"strings"
 )
 
@@ -106,6 +107,50 @@ type Block struct {
 	Transactions []TxPublish
 }
 
+/// File replication
+type ChallengeRequest struct {
+	Destination string
+	Source      string
+	FileHash    SHA256_HASH
+	Challenge   uint64
+	HopLimit    int
+}
+
+type ChallengeReply struct {
+	Destination string
+	Source      string
+	FileHash    SHA256_HASH
+	Result      SHA256_HASH
+	HopLimit    int
+}
+
+// TODO
+type ReplicationSearch struct {
+	Source   string
+	FileHash SHA256_HASH
+	HopLimit int
+}
+
+type ReplicationRequest struct {
+	Source   string
+	FileHash SHA256_HASH
+	FileSize int64
+	HopLimit int
+}
+
+type ReplicationReply struct {
+	Source   string
+	FileHash SHA256_HASH
+	HopLimit int
+}
+
+type ReplicationACK struct {
+	Source      string
+	Destination string
+	FileHash    SHA256_HASH
+	HopLimit    int
+}
+
 /// Private messages
 type PrivateMessage struct {
 	Origin      string `json:"origin"`
@@ -117,16 +162,21 @@ type PrivateMessage struct {
 
 //// Actual packet sent
 type GossipPacket struct {
-	Simple        *SimpleMessage
-	Rumor         *RumorMessage
-	Status        *StatusPacket
-	Private       *PrivateMessage
-	DataRequest   *DataRequest
-	DataReply     *DataReply
-	SearchRequest *SearchRequest
-	SearchReply   *SearchReply
-	TxPublish     *TxPublish
-	BlockPublish  *BlockPublish
+	Simple             *SimpleMessage
+	Rumor              *RumorMessage
+	Status             *StatusPacket
+	Private            *PrivateMessage
+	DataRequest        *DataRequest
+	DataReply          *DataReply
+	SearchRequest      *SearchRequest
+	SearchReply        *SearchReply
+	TxPublish          *TxPublish
+	BlockPublish       *BlockPublish
+	ChallengeRequest   *ChallengeRequest
+	ChallengeReply     *ChallengeReply
+	ReplicationRequest *ReplicationRequest
+	ReplicationReply   *ReplicationReply
+	ReplicationACK     *ReplicationACK
 }
 
 /// Hash function
@@ -257,4 +307,16 @@ func (tx *TxPublish) ToGossipPacket() *GossipPacket {
 
 func (b *BlockPublish) ToGossipPacket() *GossipPacket {
 	return &GossipPacket{BlockPublish: b}
+}
+
+func (rr *ReplicationRequest) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationRequest: rr}
+}
+
+func (rr *ReplicationReply) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationReply: rr}
+}
+
+func (ra *ReplicationACK) ToGossipPacket() *GossipPacket {
+	return &GossipPacket{ReplicationACK: ra}
 }

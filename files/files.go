@@ -17,6 +17,7 @@ import (
 	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/reputation"
 	. "github.com/RomainGehrig/Peerster/routing"
+	. "github.com/RomainGehrig/Peerster/simple"
 	. "github.com/RomainGehrig/Peerster/utils"
 )
 
@@ -82,26 +83,29 @@ type SearchedFile struct {
 }
 
 type FileHandler struct {
-	files             map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
-	filesLock         *sync.RWMutex
-	chunks            map[SHA256_HASH]*FileChunk
-	chunksLock        *sync.RWMutex
-	searchedFiles     map[SHA256_HASH]*SearchedFile
-	searchedLock      *sync.RWMutex
-	seenRequests      []SeenRequest
-	queries           []*Query
-	sharedDir         string
-	downloadDir       string
-	name              string
-	downloadWorkers   uint
-	downloadChannel   chan<- *DownloadRequest
-	routing           *RoutingHandler
-	peers             *PeersHandler
-	net               *NetworkHandler
-	blockchain        *BlockchainHandler
-	dataDispatcher    *DataReplyDispatcher
-	srepDispatcher    *SearchReplyDispatcher
-	reputationhandler *ReputationHandler
+	files                  map[SHA256_HASH]*LocalFile // Mapping from hashes to their corresponding file
+	filesLock              *sync.RWMutex
+	chunks                 map[SHA256_HASH]*FileChunk
+	chunksLock             *sync.RWMutex
+	searchedFiles          map[SHA256_HASH]*SearchedFile
+	searchedLock           *sync.RWMutex
+	replicationReplies     map[SHA256_HASH]([]string) // Store replies here before choosing
+	replicationRepliesLock *sync.RWMutex
+	seenRequests           []SeenRequest
+	queries                []*Query
+	sharedDir              string
+	downloadDir            string
+	name                   string
+	downloadWorkers        uint
+	downloadChannel        chan<- *DownloadRequest
+	routing                *RoutingHandler
+	peers                  *PeersHandler
+	net                    *NetworkHandler
+	blockchain             *BlockchainHandler
+	dataDispatcher         *DataReplyDispatcher
+	srepDispatcher         *SearchReplyDispatcher
+	reputationhandler      *ReputationHandler
+	simple                 *SimpleHandler
 }
 
 func createDirIfNotExist(abspath string) error {
@@ -140,19 +144,21 @@ func NewFileHandler(name string, downloadWorkers uint, r *ReputationHandler) *Fi
 	}
 
 	return &FileHandler{
-		files:             make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
-		filesLock:         &sync.RWMutex{},
-		chunks:            make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
-		chunksLock:        &sync.RWMutex{},
-		searchedFiles:     make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
-		searchedLock:      &sync.RWMutex{},
-		seenRequests:      make([]SeenRequest, 0),
-		queries:           make([]*Query, 0),
-		sharedDir:         sharedDir,
-		downloadDir:       downloadDir,
-		downloadWorkers:   downloadWorkers,
-		name:              name,
-		reputationhandler: r,
+		files:                  make(map[SHA256_HASH]*LocalFile), // MetafileHash to file
+		filesLock:              &sync.RWMutex{},
+		chunks:                 make(map[SHA256_HASH]*FileChunk), // Hash to file chunk
+		chunksLock:             &sync.RWMutex{},
+		searchedFiles:          make(map[SHA256_HASH]*SearchedFile), // Hash to searched files
+		searchedLock:           &sync.RWMutex{},
+		replicationReplies:     make(map[SHA256_HASH]([]string)),
+		replicationRepliesLock: &sync.RWMutex{},
+		seenRequests:           make([]SeenRequest, 0),
+		queries:                make([]*Query, 0),
+		sharedDir:              sharedDir,
+		downloadDir:            downloadDir,
+		downloadWorkers:        downloadWorkers,
+		name:                   name,
+		reputationhandler:      r,
 	}
 }
 
@@ -170,7 +176,7 @@ func (f *FileHandler) SharedFiles() []FileInfo {
 	return files
 }
 
-func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler, blockchain *BlockchainHandler) {
+func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, routing *RoutingHandler, blockchain *BlockchainHandler, simple *SimpleHandler) {
 	f.routing = routing
 	f.dataDispatcher = runDataReplyDispatcher()
 	f.srepDispatcher = runSearchReplyDispatcher()
@@ -178,6 +184,7 @@ func (f *FileHandler) RunFileHandler(net *NetworkHandler, peers *PeersHandler, r
 	f.net = net
 	f.peers = peers
 	f.blockchain = blockchain
+	f.simple = simple
 }
 
 /* We just got some new chunk */

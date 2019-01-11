@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	. "github.com/RomainGehrig/Peerster/constants"
+	. "github.com/RomainGehrig/Peerster/messages"
+	. "github.com/RomainGehrig/Peerster/peers"
 	. "github.com/RomainGehrig/Peerster/utils"
 	"math/rand"
 	"sync"
@@ -13,8 +15,11 @@ import (
 
 const DEFAULT_REPLICATION_FACTOR = 3
 const DELAY_BETWEEN_REPLICA_CHECKS = 10 * time.Second
+const DELAY_BETWEEN_REPLICA_SEARCHES = 3 * time.Second
 const CHALLENGE_TIMEOUT = 5 * time.Second
 const DELAY_BETWEEN_CHALLENGE_STATUS_CHECKS = 100 * time.Millisecond
+const WAIT_FOR_REPLICATION_REPLIES = 1 * time.Second
+const WAIT_BEFORE_CHALLENGE = 2 * time.Second
 
 // Additional info needed when we own the file
 type ReplicationData struct {
@@ -22,23 +27,6 @@ type ReplicationData struct {
 	holders        []string                  // List of nodes that possess a replica of the file
 	challenges     map[string]*ChallengeData // Map from replica name to their current challenge
 	challengesLock *sync.RWMutex
-}
-
-// TODO Move into messages
-type ChallengeRequest struct {
-	Destination string
-	Source      string
-	FileHash    SHA256_HASH
-	Challenge   uint64
-	HopLimit    int
-}
-
-type ChallengeReply struct {
-	Destination string
-	Source      string
-	FileHash    SHA256_HASH
-	Result      SHA256_HASH
-	HopLimit    int
 }
 
 type ChallengeStatus int
@@ -119,6 +107,10 @@ func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
 		go f.ContinuouslyCheckReplicaStatus(replicaName, file, replicaChannel)
 	}
 
+	newReplicasChannel := make(chan string) // TODO Buffering ?
+	// First replica search can be done immediately
+	timeBetweenReplicaSearch := time.NewTimer(0 * time.Second)
+
 	// Infinite loop of continuously checking that the replicas are alive
 	for {
 		// Here we need to
@@ -130,14 +122,32 @@ func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
 		// Check replicas state
 		for _, replicaName := range file.replicationData.holders {
 			select {
-			// Some replica failed the challenge, need to update the state
-			// and maybe find some new replicas
+			// Check if the replica failed the challenge, in which case we need
+			// to update the state and maybe find some new replicas
 			case <-currentReplicas[replicaName]:
 				updateHoldersList = true
+				close(currentReplicas[replicaName])
 				delete(currentReplicas, replicaName)
 			default:
 			}
 		}
+
+		// Check if we have new replica coming
+		for {
+			select {
+			case replicaName := <-newReplicasChannel:
+				// TODO Share code between the first init and this one
+				replicaChannel := make(chan bool)
+				currentReplicas[replicaName] = replicaChannel
+				go f.ContinuouslyCheckReplicaStatus(replicaName, file, replicaChannel)
+
+				updateHoldersList = true
+			default:
+				// Need to break out of the loop
+				goto endLoop
+			}
+		}
+	endLoop:
 
 		if updateHoldersList {
 			newHolders := make([]string, 0)
@@ -151,20 +161,76 @@ func (f *FileHandler) RunOwnedFileProcess(fileHash SHA256_HASH) {
 		replicationsNeeded := file.replicationData.factor - len(currentReplicas)
 		// Need to find more replicas !
 		if replicationsNeeded > 0 {
-			f.FindNewReplicas(replicationsNeeded, file, StringSetInit(file.replicationData.holders))
+			select {
+			case <-timeBetweenReplicaSearch.C:
+				// New search permitted
+				f.FindNewReplicas(replicationsNeeded, file, StringSetInit(file.replicationData.holders), newReplicasChannel)
+				timeBetweenReplicaSearch.Reset(DELAY_BETWEEN_REPLICA_SEARCHES)
+			default:
+				fmt.Println("Too early to do a new search")
+			}
 		}
 
-		// TODO Find new replica that doesn't already host the file
-		// TODO Distribute replication status (which replicas exist)
-
+		// TODO Distribute replication status (which replicas exist) ?
 		// TODO Sleep or ticker to avoid excessive looping ?
 	}
-
-	// TODO Don't forget: handle timeouts
 }
 
-func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders *StringSet) {
-	// TODO
+func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders *StringSet, resultChannel chan<- string) {
+	// TODO Find new replica that doesn't already host the file
+
+	req := &ReplicationRequest{
+		Source:   f.name,
+		FileHash: file.MetafileHash,
+		FileSize: file.Size,
+		HopLimit: DEFAULT_HOP_LIMIT,
+	}
+
+	fileHash := file.MetafileHash
+
+	f.replicationRepliesLock.Lock()
+	f.replicationReplies[fileHash] = make([]string, 0)
+	f.replicationRepliesLock.Unlock()
+
+	// Send query to network
+	f.simple.BroadcastMessage(req, nil)
+
+	// Wait for answers
+	time.Sleep(WAIT_FOR_REPLICATION_REPLIES)
+
+	potentialReplicas := make([]string, 0)
+
+	// Select `count` of them and ACK
+	f.replicationRepliesLock.Lock()
+	for i, replySource := range f.replicationReplies[fileHash] {
+		if i >= count {
+			break
+		}
+
+		potentialReplicas = append(potentialReplicas, replySource)
+
+		ack := &ReplicationACK{
+			Source:      f.name,
+			Destination: replySource,
+			FileHash:    fileHash,
+			HopLimit:    DEFAULT_HOP_LIMIT,
+		}
+		f.net.SendGossipPacket(ack, StringAddress{replySource})
+	}
+	delete(f.replicationReplies, fileHash)
+	f.replicationRepliesLock.Unlock()
+
+	// Wait N seconds for them to download the file
+	time.Sleep(WAIT_BEFORE_CHALLENGE)
+
+	// Challenge each and send them the successful ones to the channel
+	for _, replica := range potentialReplicas {
+		go func(replica string) {
+			if f.ChallengeReplica(replica, file, true) {
+				resultChannel <- replica
+			}
+		}(replica)
+	}
 }
 
 func (f *FileHandler) ContinuouslyCheckReplicaStatus(replicaName string, file *LocalFile, stopChan chan<- bool) {
