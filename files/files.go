@@ -42,7 +42,11 @@ const (
 func (fs FileState) HaveWholeFile() bool {
 	// We don't include Downloaded because we can't guarantee having
 	// all the chunks still laying around
-	return fs == Owned || fs == Replica
+	return fs == Owned || fs == Replica || fs == Downloaded
+}
+
+func (fs FileState) Downloading() bool {
+	return fs == Downloading || fs == DownloadingMetafile
 }
 
 func (fs FileState) HaveSomeChunks() bool {
@@ -295,7 +299,7 @@ func (f *FileHandler) prepareDataReply(dataRep *DataReply) bool {
 
 func (f *FileHandler) downloadFile(metafileHash SHA256_HASH, metafileOwner string, localName string, chunkResolver func(chunkNumber uint64) string) {
 	f.filesLock.Lock()
-	if metafile, present := f.files[metafileHash]; present && metafile.State.HaveSomeChunks() {
+	if metafile, present := f.files[metafileHash]; present && metafile.State.Downloading() {
 		fmt.Printf("File is either downloading or already downloaded: won't restart download. Hash: %x \n", metafileHash)
 		return
 	}
