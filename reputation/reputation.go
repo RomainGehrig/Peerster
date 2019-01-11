@@ -30,6 +30,8 @@ type ReputationHandler struct {
 
 func (r *ReputationHandler) CanDownloadChunk(nodename string) bool {
 	r.IncreaseOrCreate(nodename, 0)
+	r.lock.Lock()
+	defer r.lock.Unlock()
 	return r.AllReputations[nodename] > 0
 }
 
