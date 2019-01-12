@@ -15,23 +15,25 @@ const ANTIENTROPY_TIME = 1 * time.Second
 const STATUS_MESSAGE_TIMEOUT = 1 * time.Second
 
 type RumorHandler struct {
-	peerStatuses map[string]PeerStatus
-	rumorMsgs    map[PeerStatus]RumorMessage
-	rumorLock    *sync.RWMutex
-	net          *NetworkHandler
-	peers        *PeersHandler
-	routing      interfaces.UpdatableRouter
-	dispatcher   *Dispatcher
+	peerStatuses     map[string]PeerStatus
+	peerStatusesLock *sync.RWMutex
+	rumorMsgs        map[PeerStatus]RumorMessage
+	rumorLock        *sync.RWMutex
+	net              *NetworkHandler
+	peers            *PeersHandler
+	routing          interfaces.UpdatableRouter
+	dispatcher       *Dispatcher
 	// TODO get
 	name string
 }
 
 func NewRumorHandler(name string) *RumorHandler {
 	return &RumorHandler{
-		name:         name,
-		peerStatuses: make(map[string]PeerStatus),
-		rumorMsgs:    make(map[PeerStatus]RumorMessage),
-		rumorLock:    &sync.RWMutex{},
+		name:             name,
+		peerStatuses:     make(map[string]PeerStatus),
+		peerStatusesLock: &sync.RWMutex{},
+		rumorMsgs:        make(map[PeerStatus]RumorMessage),
+		rumorLock:        &sync.RWMutex{},
 	}
 }
 
@@ -58,6 +60,9 @@ func (r *RumorHandler) runAntiEntropy() {
 }
 
 func (r *RumorHandler) CreateClientRumor(text string) *RumorMessage {
+	r.peerStatusesLock.RLock()
+	defer r.peerStatusesLock.RUnlock()
+
 	selfStatus, present := r.peerStatuses[r.name]
 	var nextID uint32
 	if !present {
@@ -88,6 +93,9 @@ func (r *RumorHandler) NonEmptyRumors() []RumorMessage {
 
 // A return value =0 means we are sync, >0 we are in advance, <0 we are late
 func (r *RumorHandler) SelfDiffRumorID(rumor *RumorMessage) int {
+	r.peerStatusesLock.Lock()
+	defer r.peerStatusesLock.Unlock()
+
 	// TODO put initialization elsewhere ?
 	peerStatus, present := r.peerStatuses[rumor.Origin]
 	if !present {
@@ -126,6 +134,9 @@ func (r *RumorHandler) CreateStatusMessage() *StatusPacket {
 }
 
 func (r *RumorHandler) WantList() []PeerStatus {
+	r.peerStatusesLock.RLock()
+	defer r.peerStatusesLock.RUnlock()
+
 	peerStatuses := make([]PeerStatus, 0)
 	for _, peerStatus := range r.peerStatuses {
 		peerStatuses = append(peerStatuses, peerStatus)
@@ -166,6 +177,9 @@ func (r *RumorHandler) HandleRumorMessage(rumor *RumorMessage, sender PeerAddres
 }
 
 func (r *RumorHandler) acceptRumorMessage(rumor *RumorMessage) {
+	r.peerStatusesLock.Lock()
+	defer r.peerStatusesLock.Unlock()
+
 	oldPeerStatus, _ := r.peerStatuses[rumor.Origin]
 	newPeerStatus := PeerStatus{Identifier: rumor.Origin, NextID: rumor.ID + 1}
 

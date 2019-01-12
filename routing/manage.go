@@ -41,6 +41,9 @@ func (r *RoutingHandler) runRoutingMessages() {
 	ticker := time.NewTicker(r.rtimer)
 	defer ticker.Stop()
 
+	// Wait a tiny bit before sending the first rumor
+	time.Sleep(200 * time.Millisecond)
+
 	// Start by sending a routing message to all neighbors
 	r.sendRoutingMessage(r.peers.AllPeers()...)
 
@@ -77,6 +80,8 @@ func (r *RoutingHandler) UpdateRoutingTable(origin string, peerAddr PeerAddress)
 
 func (r *RoutingHandler) sendRoutingMessage(peers ...PeerAddress) {
 	routingMessage := r.rumors.CreateClientRumor("")
+
+	r.rumors.HandleRumorMessage(routingMessage, nil)
 
 	for _, p := range peers {
 		r.net.SendGossipPacket(routingMessage, p)

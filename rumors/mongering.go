@@ -88,6 +88,10 @@ func (r *RumorHandler) ComputeRumorStatusDiff(otherStatus []PeerStatus) (rumorsT
 	rumorsToSend = make([]PeerStatus, 0)
 	rumorsToAsk = make([]PeerStatus, 0)
 	otherOrigins := make([]string, 0)
+
+	r.peerStatusesLock.RLock()
+	defer r.peerStatusesLock.RUnlock()
+
 	// Check that we have all rumors already
 	for _, peerStatus := range otherStatus {
 		// Create the list of origins we will use to do the symmetric diff
