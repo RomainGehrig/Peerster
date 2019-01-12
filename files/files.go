@@ -209,7 +209,7 @@ func (f *FileHandler) HandleDataReply(dataRep *DataReply) {
 
 		// Impact on the reputation, must add a TxPublish to the blockchain
 		// First create the new TxPublish to be "mined"
-		transaction := f.reputationhandler.CreateDownloadSuccessTransaction(dataRep.Origin, dataRep.Destination)
+		transaction := f.reputationhandler.CreateDownloadSuccessTransaction(dataRep.Destination, dataRep.Origin)
 
 		// Handle the transaction in the blockchain
 		go f.blockchain.HandleTxPublish(transaction)
