@@ -86,6 +86,7 @@ func (b *BlockchainHandler) isTXValid(tx *TxPublish) bool {
 	b.pendingIDLock.RLock()
 	defer b.pendingIDLock.RUnlock()
 
+	//Special case if it is a block to announce a new main host
 	if tx.Type == NewMaster {
 		var hash_sha [32]byte
 		copy(hash_sha[:], tx.TargetHash)
@@ -366,6 +367,7 @@ func (b *BlockchainHandler) applyBlockTx(blk *Block) {
 		mappingName := newTx.Hash()
 		b.mapping[mappingName] = struct{}{}
 
+		//Special case if it is a block to announce a new main host
 		if newTx.Type == NewMaster {
 			var hash_sha [32]byte
 			copy(hash_sha[:], newTx.TargetHash)
@@ -408,6 +410,7 @@ func (b *BlockchainHandler) unapplyBlockTx(blk *Block) {
 	b.DeleteOwnerLock.Lock()
 	defer b.DeleteOwnerLock.Unlock()
 	for _, oldTx := range blk.Transactions {
+		//Special case if it is a block to announce a new main host
 		if oldTx.Type == NewMaster && oldTx.NodeOrigin == b.name {
 			var hash_sha [32]byte
 			copy(hash_sha[:], oldTx.TargetHash)
