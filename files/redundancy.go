@@ -113,7 +113,7 @@ func (f *FileHandler) HandleChallengeReply(cr *ChallengeReply) {
 			file.replicationData.challengesLock.RUnlock()
 
 			// If the challenge already had an anwer or timed out, we won't change its state
-			if challenge.ChallengeStatus != Waiting {
+			if !present || challenge.ChallengeStatus != Waiting {
 				return
 			}
 
