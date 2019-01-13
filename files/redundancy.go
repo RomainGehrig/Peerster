@@ -186,9 +186,7 @@ func (f *FileHandler) HandleReplicationACK(ra *ReplicationACK) {
 		} else {
 			fileHash := ra.FileHash
 
-			// TODO Better local name for search purpose ?
-			localName := fmt.Sprintf("%s_%x", f.name, fileHash)
-			f.downloadFile(fileHash, ra.Source, localName, func(uint64) string { return ra.Source })
+			f.downloadFile(fileHash, ra.Source, ra.FileName, func(uint64) string { return ra.Source })
 
 			f.filesLock.RLock()
 			f.files[fileHash].State = Replica
@@ -411,6 +409,7 @@ func (f *FileHandler) FindNewReplicas(count int, file *LocalFile, currentHolders
 			Source:      f.name,
 			Destination: replySource,
 			FileHash:    fileHash,
+			FileName:    file.Name,
 			HopLimit:    DEFAULT_HOP_LIMIT,
 		}
 		f.routing.SendPacketTowards(ack, replySource)

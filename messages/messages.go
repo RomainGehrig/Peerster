@@ -149,6 +149,7 @@ type ReplicationReply struct {
 type ReplicationACK struct {
 	Source      string
 	Destination string
+	FileName    string
 	FileHash    SHA256_HASH
 	HopLimit    int
 }
