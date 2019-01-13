@@ -52,6 +52,7 @@ func (b *FailureHandler) RunFailureHandler() {
 //Flood a message every 5 second to say that it is up
 func (b *FailureHandler) ping() {
 	for {
+		fmt.Println(b.NodesDown)
 		msg := b.createOnlineMsg()
 		b.Dispatch.BroadcastMessage(msg, nil)
 		time.Sleep(time.Second * 5)
@@ -73,6 +74,10 @@ func (b *FailureHandler) createOnlineMsg() *OnlineMessage {
 
 func (b *FailureHandler) HandleOnlineMessage(msg *OnlineMessage) {
 	b.updateTables(msg)
+	if msg.HopLimit > 0 {
+		msg.HopLimit--
+		b.Dispatch.BroadcastMessage(msg, nil)
+	}
 }
 
 func (b *FailureHandler) HandleRequestReplica(msg *RequestHasReplica) {
@@ -84,6 +89,10 @@ func (b *FailureHandler) HandleRequestReplica(msg *RequestHasReplica) {
 			HopLimit: 20,
 		}
 		b.Adresses.SendPacketTowards(&ans, msg.HostName)
+	}
+	if msg.HopLimit > 0 {
+		msg.HopLimit--
+		b.Dispatch.BroadcastMessage(msg, nil)
 	}
 }
 

@@ -603,13 +603,17 @@ func (f *FileHandler) HostingSetup(hash SHA256_HASH, maxDelay int64) {
 
 //Fill the FileMapConstruction with the answer
 func (f *FileHandler) HandleAnswer(msg *AnswerReplicaFile) {
-	fmt.Println("J'ai reçu une réponse!!!!!!")
-	f.fileMapConstructionLock.Lock()
-	defer f.fileMapConstructionLock.Unlock()
+	if msg.Dest == f.name {
+		f.fileMapConstructionLock.Lock()
+		defer f.fileMapConstructionLock.Unlock()
 
-	_, present := f.fileMapConstruction[msg.FileHash]
-	if !present {
-		f.fileMapConstruction[msg.FileHash] = make([]string, 0)
+		_, present := f.fileMapConstruction[msg.FileHash]
+		if !present {
+			f.fileMapConstruction[msg.FileHash] = make([]string, 0)
+		}
+		f.fileMapConstruction[msg.FileHash] = append(f.fileMapConstruction[msg.FileHash], msg.Origin)
+	} else {
+		msg.HopLimit--
+		f.routing.SendPacketTowards(msg, msg.Dest)
 	}
-	f.fileMapConstruction[msg.FileHash] = append(f.fileMapConstruction[msg.FileHash], msg.Origin)
 }
