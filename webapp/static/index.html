@@ -102,17 +102,7 @@
                                                   <td>
                                                           <strong>{{file.filename}}</strong> ({{humanSize(file.size)}})
                                                           <div class="float-right">
-                                                              <span v-bind:title="file.replicas" class="badge badge-primary" style="background-color: grey">
-                                                                  Replication:
-                                                                  <span :style="'color:' + getColor(redundancyFactor(file))">
-                                                                      <i v-if="redundancyFactor(file) < 0.20" class="fas fa-battery-empty"></i>
-                                                                      <i v-else-if="redundancyFactor(file) < 0.50" class="fas fa-battery-quarter"></i>
-                                                                      <i v-else-if="redundancyFactor(file) < 0.75" class="fas fa-battery-half"></i>
-                                                                      <i v-else-if="redundancyFactor(file) < 1.00" class="fas fa-battery-three-quarter"></i>
-                                                                      <i v-else="redundancyFactor(file)" class="fas fa-battery-full"></i>
-                                                                  </span>
-                                                                  {{file.replicas.length}}/{{file.replicationFactor}}
-                                                              </span>
+                                                              <file-replication :file="file" />
                                                           </div>
 
                                                           <br/>
