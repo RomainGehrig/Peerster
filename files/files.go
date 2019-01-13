@@ -427,10 +427,6 @@ func (f *FileHandler) chunkDownloader(req *DownloadRequest) (*DataReply, bool) {
 			// Drop the packet if it isn't valid
 			if !isDataReplyValid(dataRep) {
 				fmt.Printf("Received Hash (%x) didn't match the hash of the received content: (%x)\n", dataRep.HashValue, sha256.Sum256(dataRep.Data))
-				
-				// Registering the failure in the blockchain
-				f.blockchain.HandleTxPublish(f.reputationhandler.CreateTimeoutTransaction(fmt.Sprintf("%x", req.Hash[:]), f.name, req.Dest))
-				
 				break
 			}
 
