@@ -2,8 +2,8 @@ Project was freshly put in the public space. I still need to document a bit the 
 
 * To start the webapp
 
-Just do ~cd webapp; 
-~go get
+Just do ~cd webapp~ 
+~go get~
 ~go run server.go~
 
 After you launched a default peerster
