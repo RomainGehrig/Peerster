@@ -3,6 +3,7 @@ package lib
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	. "github.com/RomainGehrig/Peerster/messages"
@@ -28,22 +29,8 @@ func NodeHandler(w http.ResponseWriter, r *http.Request) {
 			Nodes []string `json:"nodes"`
 		}
 		nodes.Nodes = getNodes()
-		allAlive := []string{}
-		allDead := getAllDead()
-		for _, elem := range nodes.Nodes {
-			alive := true
-			for _, dead := range allDead {
-				if dead == elem {
-					alive = false
-					break
-				}
-			}
-			if alive {
-				allAlive = append(allAlive, elem)
-			}
-		}
 
-		json.NewEncoder(w).Encode(allAlive)
+		json.NewEncoder(w).Encode(nodes)
 	} else if r.Method == "POST" {
 		var node struct {
 			Addr string `json:"addr"`
@@ -67,6 +54,22 @@ func DestinationsHandler(w http.ResponseWriter, r *http.Request) {
 		Destinations []string `json:"destinations"`
 	}
 	destinations.Destinations = getDestinations()
+	allAlive := make([]string, 0)
+	allDead := getAllDead()
+	for _, elem := range destinations.Destinations {
+		alive := true
+		for _, dead := range allDead {
+			if dead == elem {
+				alive = false
+				break
+			}
+		}
+		if alive {
+			allAlive = append(allAlive, elem)
+		}
+	}
+	destinations.Destinations = allAlive
+	fmt.Println(allAlive)
 	json.NewEncoder(w).Encode(destinations)
 }
 
