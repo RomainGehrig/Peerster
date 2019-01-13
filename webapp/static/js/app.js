@@ -55,6 +55,66 @@ Vue.component('file-request', {
     }
 });
 
+Vue.component('file-replication', {
+    template: `<a :id="'file-replication-popover-'+fileHash()" class="badge badge-dark">
+                    Replication:
+                    <span :style="'color:' + getColor(redundancyFactor(file))">
+                        <i v-if="redundancyFactor(file) < 0.20" class="fas fa-battery-empty"></i>
+                        <i v-else-if="redundancyFactor(file) < 0.50" class="fas fa-battery-quarter"></i>
+                        <i v-else-if="redundancyFactor(file) < 0.75" class="fas fa-battery-half"></i>
+                        <i v-else-if="redundancyFactor(file) < 1.00" class="fas fa-battery-three-quarter"></i>
+                        <i v-else="redundancyFactor(file)" class="fas fa-battery-full"></i>
+                    </span>
+                    {{file.replicas.length}}/{{file.replicationFactor}}
+               <div :id="'file-replication-popover-head-' + fileHash()" class="d-none">
+                    Current replica(s): <span v-if="!file.replicas">no replica</span><span v-else>{{file.replicas.join(", ")}}</span>
+               </div>
+               <div :id="'file-replication-popover-content-' + fileHash()" class="d-none">
+                  <form onsubmit="clickChangeReplication(this); return false;">
+                    <input id="file-replication-destination" type="hidden" :value="fileHash()"/>
+                    <label for="file-replication-factor">Replication factor:</label>
+                    <div class="input-group">
+                      <input id="file-replication-factor" class="form-control" type="number" min="0" max="10" value="3"/>
+                      <span class="input-group-append">
+                        <input type="submit" class="btn btn-info btn-block btn-big" value="Apply"/>
+                      </span>
+                    </div>
+               </form>
+               </div></a>`,
+    props: ["file"],
+    mounted: function() {
+        const component = this;
+        // Enable popover
+        $('#file-replication-popover-' + this.fileHash()).popover({
+            html : true,
+            title: function() {
+                return $("#file-replication-popover-head-" + component.fileHash()).html();
+            },
+            content: function() {
+                return $("#file-replication-popover-content-" + component.fileHash()).html();
+            }
+        });
+    },
+    methods: {
+        fileHash: function() {
+            return vue.toHexString(this.file.hash);
+        },
+        // Adapted from https://stackoverflow.com/a/17268489/1439561
+        getColor: function(value) {
+            // Hack for another part to work
+            $('[data-toggle="tooltip"]').tooltip();
+
+            //value from 0 to 1 (0 is red, 1 is green)
+            value = Math.max(0, Math.min(1, value));
+            var hue=((value)*120).toString(10);
+            return ["hsl(",hue,",100%,50%)"].join("");
+        },
+        redundancyFactor: function(file) {
+            return file.replicas.length / file.replicationFactor;
+        }
+    }
+});
+
 const RUMOR_TAB = "_rumors";
 
 let vue = new Vue({
@@ -80,10 +140,6 @@ let vue = new Vue({
             }
         },
 
-        redundancyFactor: function(file) {
-            return file.replicas.length / file.replicationFactor;
-        },
-
         // Copied from https://stackoverflow.com/a/34310051/1439561
         toHexString: function(byteArray) {
             return Array.from(byteArray, function(byte) {
@@ -91,16 +147,6 @@ let vue = new Vue({
             }).join('').toUpperCase();
         },
 
-        // Adapted from https://stackoverflow.com/a/17268489/1439561
-        getColor: function(value) {
-            // Hack for another part to work
-            $('[data-toggle="tooltip"]').tooltip();
-
-            //value from 0 to 1 (0 is red, 1 is green)
-            value = Math.max(0, Math.min(1, value));
-            var hue=((value)*120).toString(10);
-            return ["hsl(",hue,",100%,50%)"].join("");
-        },
 
         humanSize: function(byteCount) {
             const units = ["B", "KB", "MB", "GB"];
@@ -223,6 +269,22 @@ function onEnter(func, ...args) {
 
 function changeTab(hash) {
     vue.activeTab = stripHash(hash, RUMOR_TAB);
+}
+
+function clickChangeReplication(form) {
+    const fileHashElem = form["file-replication-destination"];
+    const fileFactorElem = form["file-replication-factor"];
+    const fileHash = fileHashElem.value;
+    const factor = parseInt(fileFactorElem.value);
+
+    if (fileHash == "" || factor < 0) {
+        return;
+    }
+
+    // TODO Do this without a shotgun
+    $(".popover").popover("hide");
+    sendNewReplicationFactor(fileHash, factor);
+    refreshInfo();
 }
 
 function clickSubmitFileRequest(form) {
@@ -380,12 +442,12 @@ async function sendFileName(filename) {
     return jsonPost("/sharedFiles", JSON.stringify({"filename": filename}));
 }
 
-// Redundancy
-async function sendNewRedundancyFactor(hash, factor) {
+// Replication
+async function sendNewReplicationFactor(hash, factor) {
     if (Array.isArray(hash)) {
         hash = vue.toHexString(hash);
     }
-    console.log("Hash is", hash);
+
     return jsonPost("/redundancy", JSON.stringify({"hash": hash, "factor": factor}));
 }
 
