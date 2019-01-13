@@ -49,6 +49,7 @@ func (b *FailureHandler) RunFailureHandler() {
 	b.ping()
 }
 
+//Flood a message every 5 second to say that it is up
 func (b *FailureHandler) ping() {
 	for {
 		msg := b.createOnlineMsg()
@@ -57,6 +58,7 @@ func (b *FailureHandler) ping() {
 	}
 }
 
+//Create the messages need by ping
 func (b *FailureHandler) createOnlineMsg() *OnlineMessage {
 	filesInfo := b.File.SharedFiles()
 	filesOwned := make([]SHA256_HASH, 0)
@@ -85,6 +87,7 @@ func (b *FailureHandler) HandleRequestReplica(msg *RequestHasReplica) {
 	}
 }
 
+//Update the tables that record who is online and what is there delay
 func (b *FailureHandler) updateTables(msg *OnlineMessage) {
 	b.NodesLock.Lock()
 	defer b.NodesLock.Unlock()
@@ -106,6 +109,7 @@ func (b *FailureHandler) updateTables(msg *OnlineMessage) {
 	}
 }
 
+//One process for each online peer, if we don't receive anymore notification, consider the peer as offline
 func (b *FailureHandler) detectFailure(name string) {
 	for {
 		b.NodesLock.RLock()
@@ -134,6 +138,7 @@ func (b *FailureHandler) detectFailure(name string) {
 	}
 }
 
+//Check if the peer that went down was a host
 func (b *FailureHandler) checkIfAHost(name string) {
 	b.NodesLock.RLock()
 	defer b.NodesLock.RUnlock()
@@ -152,6 +157,7 @@ func (b *FailureHandler) checkIfAHost(name string) {
 	}
 }
 
+//Check to see if we became the new main host of some files, or if we lost this title in a fork rewind
 func (b *FailureHandler) checkingUpdateHost() {
 	for {
 		time.Sleep(2 * time.Second)

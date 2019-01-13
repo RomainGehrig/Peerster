@@ -113,7 +113,7 @@ func (f *FileHandler) HandleChallengeReply(cr *ChallengeReply) {
 			file.replicationData.challengesLock.RUnlock()
 
 			// If the challenge already had an anwer or timed out, we won't change its state
-			if challenge.ChallengeStatus != Waiting {
+			if !present || challenge.ChallengeStatus != Waiting {
 				return
 			}
 
@@ -533,6 +533,7 @@ func (f *FileHandler) CreateChallenge(target string, file *LocalFile) (*Challeng
 	return request, f.AnswerChallenge(file, request)
 }
 
+//Set the state of a file from replica to owned
 func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
 	f.filesLock.RLock()
 	defer f.filesLock.RUnlock()
@@ -543,6 +544,7 @@ func (f *FileHandler) ChangeOwnership(hash SHA256_HASH) {
 	}
 }
 
+//Set the state of a file from owned to replica
 func (f *FileHandler) LoseMaster(hash SHA256_HASH) {
 	f.filesLock.RLock()
 	defer f.filesLock.RUnlock()
@@ -553,6 +555,7 @@ func (f *FileHandler) LoseMaster(hash SHA256_HASH) {
 	}
 }
 
+//Try to become the new host of a given file
 func (f *FileHandler) BecomeTheHost(hash SHA256_HASH, maxDelay int64) {
 	f.blockchain.OwnerIDLock.RLock()
 	prevID, present := f.blockchain.OwnerID[hash]
@@ -574,6 +577,7 @@ func (f *FileHandler) BecomeTheHost(hash SHA256_HASH, maxDelay int64) {
 	f.blockchain.HandleTxPublish(&tx)
 }
 
+//Run the processes to effectively become the new main host of a file
 func (f *FileHandler) HostingSetup(hash SHA256_HASH, maxDelay int64) {
 
 	req := RequestHasReplica{HostName: f.name,
