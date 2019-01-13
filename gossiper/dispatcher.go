@@ -32,6 +32,8 @@ func (g *Gossiper) DispatchClientRequest(req *Request, sender PeerAddress) {
 			resp.FileSearchResult = g.files.LastQueryResults()
 		case ReputationQuery:
 			resp.Reputations = g.reputation.AllReputations
+		case TimedOutQuery:
+			resp.Nodes = g.failure.NodesDown
 		}
 		g.net.SendClientResponse(&resp, sender)
 	case req.Post != nil:

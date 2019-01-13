@@ -28,7 +28,22 @@ func NodeHandler(w http.ResponseWriter, r *http.Request) {
 			Nodes []string `json:"nodes"`
 		}
 		nodes.Nodes = getNodes()
-		json.NewEncoder(w).Encode(nodes)
+		allAlive := []string{}
+		allDead := getAllDead()
+		for _, elem := range nodes.Nodes {
+			alive := true
+			for _, dead := range allDead {
+				if dead == elem {
+					alive = false
+					break
+				}
+			}
+			if alive {
+				allAlive = append(allAlive, elem)
+			}
+		}
+
+		json.NewEncoder(w).Encode(allAlive)
 	} else if r.Method == "POST" {
 		var node struct {
 			Addr string `json:"addr"`

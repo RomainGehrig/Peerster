@@ -18,6 +18,7 @@ const (
 	SharedFilesQuery
 	FileSearchResultQuery
 	ReputationQuery
+	TimedOutQuery
 )
 
 type GetRequest struct {

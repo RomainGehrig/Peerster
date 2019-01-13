@@ -119,6 +119,11 @@ func postFileDownloadRequest(destination string, hash SHA256_HASH, filename stri
 	sendQuery(toSend).Close()
 }
 
+func getAllDead() []string {
+	toSend := &Request{Get: &GetRequest{Type: TimedOutQuery}}
+	return reqToResp(toSend).Nodes
+}
+
 func addNewNode(addr string) {
 	toSend := &Request{Post: &PostRequest{Node: &Node{Addr: addr}}}
 	sendQuery(toSend).Close()
