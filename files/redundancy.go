@@ -587,7 +587,7 @@ func (f *FileHandler) HostingSetup(hash SHA256_HASH, maxDelay int64) {
 
 	f.simple.BroadcastMessage(&req, nil)
 
-	time.Sleep(3 * time.Second * time.Duration(maxDelay))
+	time.Sleep(3*time.Second + time.Duration(maxDelay))
 	f.ChangeOwnership(hash)
 	file, present := f.files[hash]
 	if present {
@@ -604,6 +604,7 @@ func (f *FileHandler) HostingSetup(hash SHA256_HASH, maxDelay int64) {
 
 //Fill the FileMapConstruction with the answer
 func (f *FileHandler) HandleAnswer(msg *AnswerReplicaFile) {
+	fmt.Println("J'ai reçu une réponse!!!!!!")
 	f.fileMapConstructionLock.Lock()
 	defer f.fileMapConstructionLock.Unlock()
 
